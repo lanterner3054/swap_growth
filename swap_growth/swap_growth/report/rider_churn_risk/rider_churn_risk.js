@@ -27,6 +27,10 @@ frappe.query_reports["Rider Churn Risk"] = {
 		return value;
 	},
 
+	after_datatable_render(datatable) {
+		swap_growth.enhance_datatable(datatable);
+	},
+
 	onload(report) {
 		report.page.add_inner_button("指派跟进（勾选的骑手）", () => {
 			const rows = report.datatable.rowmanager.getCheckedRows().map((i) => report.data[i]);

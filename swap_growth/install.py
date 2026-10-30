@@ -9,28 +9,28 @@ DEMO_USERS = [
 	{
 		"email": "director@example.com",
 		"first_name": "运营总监",
-		"last_name": "（演示）",
+		"avatar": "/assets/swap_growth/images/avatars/director.svg",
 		"roles": [ROLE_DIRECTOR],
 		"districts": [],
 	},
 	{
 		"email": "xiaoshan.mgr@example.com",
 		"first_name": "萧山滨江区域经理",
-		"last_name": "（演示）",
+		"avatar": "/assets/swap_growth/images/avatars/xiaoshan.svg",
 		"roles": [ROLE_MANAGER],
 		"districts": ["萧山区", "滨江区"],
 	},
 	{
 		"email": "qiantang.mgr@example.com",
 		"first_name": "钱塘临平区域经理",
-		"last_name": "（演示）",
+		"avatar": "/assets/swap_growth/images/avatars/qiantang.svg",
 		"roles": [ROLE_MANAGER],
 		"districts": ["钱塘区", "临平区"],
 	},
 	{
 		"email": "operator@example.com",
 		"first_name": "运营专员",
-		"last_name": "（演示）",
+		"avatar": "/assets/swap_growth/images/avatars/operator.svg",
 		"roles": [ROLE_OPERATOR],
 		"districts": [],
 	},
@@ -52,6 +52,12 @@ def after_install():
 	summary = generate()
 	frappe.db.commit()
 	print(f"[swap_growth] 演示数据已生成：{summary}")
+
+
+def after_migrate():
+	"""升级时同步演示账号的显示名与头像。"""
+	if frappe.db.exists("User", DEMO_USERS[0]["email"]):
+		ensure_demo_users()
 
 
 def ensure_roles():
@@ -129,7 +135,7 @@ def ensure_demo_users():
 					"doctype": "User",
 					"email": email,
 					"first_name": spec["first_name"],
-					"last_name": spec["last_name"],
+					"user_image": spec["avatar"],
 					"language": "zh",
 					"send_welcome_email": 0,
 					"new_password": DEMO_PASSWORD,
@@ -138,6 +144,19 @@ def ensure_demo_users():
 			)
 			user.flags.ignore_password_policy = True
 			user.insert(ignore_permissions=True)
+		else:
+			# 已有站点：同步显示名与头像（去掉"（演示）"后缀，使用彩色头像）
+			frappe.db.set_value(
+				"User",
+				email,
+				{
+					"first_name": spec["first_name"],
+					"last_name": "",
+					"full_name": spec["first_name"],
+					"user_image": spec["avatar"],
+				},
+				update_modified=False,
+			)
 		if ROLE_DIRECTOR in spec["roles"]:
 			director = email
 		for district in spec["districts"]:

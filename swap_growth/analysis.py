@@ -7,12 +7,20 @@
 """
 
 import json
-import time
 from collections import Counter
 
 import frappe
 import requests
-from frappe.utils import add_days, add_months, add_to_date, get_first_day, getdate, now_datetime, today
+from frappe.utils import (
+	add_days,
+	add_months,
+	add_to_date,
+	get_datetime,
+	get_first_day,
+	getdate,
+	now_datetime,
+	today,
+)
 
 from swap_growth.constants import EVENT_CHURN, EVENT_NEW, SUPPLY_REASONS
 from swap_growth.metrics import (
@@ -52,33 +60,72 @@ findings 3~4 条，causes 2~4 条，actions 3~4 条，site_suggestions 0~3 条�
 # ---------------------------------------------------------------- 对外接口
 
 
+def resolve_scope(district):
+	"""权限校验并确定分析范围。区域经理没有全市视角：默认分析其负责的第一个区，避免与全市缓存混用。"""
+	district = district or ""
+	allowed = resolve_districts(district or None)
+	if not district and len(allowed) < frappe.db.count("Swap District"):
+		district = allowed[0] if allowed else frappe.throw("没有可分析的区域", frappe.PermissionError)
+	return district
+
+
+def lock_key(district):
+	return frappe.cache.make_key(f"swap_growth:analysis_lock:{district or 'all'}")
+
+
 @frappe.whitelist()
 def get_analysis(district=None, force=0):
-	district = district or ""
-	allowed = resolve_districts(district or None)  # 权限校验
-	if not district and len(allowed) < frappe.db.count("Swap District"):
-		# 区域经理没有全市视角：默认分析其负责的第一个区，避免与全市缓存混用
-		district = allowed[0] if allowed else frappe.throw("没有可分析的区域", frappe.PermissionError)
-	settings = frappe.get_single("Swap Growth Settings")
-	force = frappe.utils.cint(force)
-	if not force:
+	"""有有效缓存直接返回；否则在后台队列生成并立即返回 running，由前端轮询 poll_analysis。
+
+	生成（尤其是调用大模型）可能需要几十秒，放在后台执行，不占用网页进程，
+	大屏和分析页同时打开、或多人同时点击时，同一范围只生成一次，大家等待同一份结果。
+	"""
+	district = resolve_scope(district)
+	if not frappe.utils.cint(force):
 		cached = find_cached(district)
 		if cached:
 			return to_payload(cached, cached_hit=True)
 
-	# 同一范围同一时刻只生成一次：大屏和分析页同时打开、或多人同时点击时，后来者等待并复用结果
-	lock_key = frappe.cache.make_key(f"swap_growth:analysis_lock:{district or 'all'}")
-	if not frappe.cache.set(lock_key, frappe.session.user, nx=True, ex=150):
-		started = now_datetime()
-		for _ in range(75):
-			time.sleep(2)
-			done = find_cached(district, since=started if force else None)
-			if done:
-				return to_payload(done, cached_hit=True)
+	key = lock_key(district)
+	started = now_datetime()
+	if frappe.cache.set(key, str(started), nx=True, ex=600):
+		try:
+			frappe.enqueue(
+				"swap_growth.analysis.generate",
+				queue="long",
+				timeout=600,
+				district=district,
+			)
+		except Exception:
+			# 队列不可用时退回同步生成，保证功能可用
+			try:
+				return to_payload(run_analysis(district, frappe.get_single("Swap Growth Settings")), False)
+			finally:
+				frappe.cache.delete(key)
+	else:
+		# 已有人在生成：等待同一份结果
+		running = frappe.cache.get(key)
+		started = get_datetime(running.decode() if isinstance(running, bytes) else running) or started
+	return {"status": "running", "district": district, "since": str(started)}
+
+
+@frappe.whitelist()
+def poll_analysis(district=None, since=None):
+	district = resolve_scope(district)
+	done = find_cached(district, since=get_datetime(since) if since else None)
+	if done:
+		return to_payload(done, cached_hit=False)
+	if frappe.cache.get(lock_key(district)):
+		return {"status": "running", "district": district, "since": since}
+	return {"status": "failed", "district": district}
+
+
+def generate(district):
+	"""后台任务：生成分析并释放锁。"""
 	try:
-		return to_payload(run_analysis(district, settings), cached_hit=False)
+		run_analysis(district, frappe.get_single("Swap Growth Settings"))
 	finally:
-		frappe.cache.delete(lock_key)
+		frappe.cache.delete(lock_key(district))
 
 
 @frappe.whitelist()
@@ -109,6 +156,7 @@ def find_cached(district, since=None):
 
 def to_payload(doc, cached_hit):
 	return {
+		"status": "done",
 		"name": doc.name,
 		"scope": doc.scope_label,
 		"district": doc.district or "",

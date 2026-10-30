@@ -10,6 +10,25 @@ frappe.pages["swap-command-center"].on_page_show = function (wrapper) {
 	wrapper.command_center && wrapper.command_center.on_show();
 };
 
+// 离开大屏时退出全屏，否则浏览器仍停留在大屏的全屏层上，新页面无法滚动
+frappe.pages["swap-command-center"].on_page_hide = function () {
+	if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+};
+
+// 数据分析在后台生成：先请求，若正在生成则每 3 秒轮询一次，最多等 4 分钟
+window.swap_growth_fetch_analysis = async function (district, force, on_wait) {
+	let r = (await frappe.call({ method: "swap_growth.analysis.get_analysis", args: { district, force: force ? 1 : 0 } })).message;
+	const deadline = Date.now() + 4 * 60 * 1000;
+	while (r.status === "running") {
+		on_wait && on_wait();
+		if (Date.now() > deadline) throw new Error("分析生成超时，请稍后重试");
+		await new Promise((resolve) => setTimeout(resolve, 3000));
+		r = (await frappe.call({ method: "swap_growth.analysis.poll_analysis", args: { district: r.district, since: r.since } })).message;
+	}
+	if (r.status !== "done") throw new Error("分析生成失败，请稍后重试");
+	return r;
+};
+
 const SGC = {
 	W: 1920,
 	H: 1080,
@@ -120,14 +139,8 @@ class SwapCommandCenter {
 			<div class="sgc-toast"></div>
 		</div></div>`).appendTo(this.page.main);
 		this.$screen = this.$outer.find(".sgc-screen");
-		this.$outer.find(".sgc-ai-more").on("click", () => {
-			frappe.route_options = { district: this.district };
-			frappe.set_route("swap-data-analysis");
-		});
-		this.$outer.find(".sgc-risk-more").on("click", () => {
-			frappe.route_options = { district: this.district };
-			frappe.set_route("query-report", "Rider Churn Risk");
-		});
+		this.$outer.find(".sgc-ai-more").on("click", () => this.go("swap-data-analysis"));
+		this.$outer.find(".sgc-risk-more").on("click", () => this.go("query-report", "Rider Churn Risk"));
 		this.page.main.css({ padding: "12px 0" });
 	}
 
@@ -178,6 +191,13 @@ class SwapCommandCenter {
 		});
 		if (!full) this.$outer.css("height", SGC.H * scale);
 		Object.values(this.charts).forEach((c) => c.resize());
+	}
+
+	// 带着当前区域跳转；全屏时先退出全屏再跳转
+	async go(...route) {
+		if (document.fullscreenElement) await document.exitFullscreen().catch(() => {});
+		frappe.route_options = { district: this.district };
+		frappe.set_route(...route);
 	}
 
 	toggle_fullscreen() {
@@ -477,8 +497,7 @@ class SwapCommandCenter {
 			`高风险 <b style="color:${SGC.color.red}">${risk.high}</b> · 中风险 <b style="color:${SGC.color.orange}">${risk.medium}</b>　<a class="sgc-link sgc-risk-more">全部名单 ›</a>`
 		);
 		this.$outer.find(".sgc-risk-more").off("click").on("click", () => {
-			frappe.route_options = { district: this.district };
-			frappe.set_route("query-report", "Rider Churn Risk");
+			this.go("query-report", "Rider Churn Risk");
 		});
 		const html = risk.top
 			.slice(0, 4)
@@ -534,11 +553,13 @@ class SwapCommandCenter {
 
 	// ------------------------------------------------------------ 数据分析摘要
 	async load_analysis() {
-		const $body = this.$outer.find(".sgc-ai-body").addClass("sgc-loading")
-			.html("正在读取分析结果…<br><small>若需重新生成，大模型约需 15~40 秒</small>");
+		const district = this.district;
+		const $body = this.$outer.find(".sgc-ai-body").addClass("sgc-loading").removeAttr("style").html("正在读取分析结果…");
 		try {
-			const r = await frappe.call({ method: "swap_growth.analysis.get_analysis", args: { district: this.district } });
-			const a = r.message;
+			const a = await swap_growth_fetch_analysis(district, false, () =>
+				$body.html("正在生成分析…<br><small>大模型约需 15~40 秒，可先查看其他面板</small>")
+			);
+			if (district !== this.district) return; // 期间已切换区域
 			const res = a.result || {};
 			const items = (res.findings || [])
 				.slice(0, 3)
@@ -551,7 +572,7 @@ class SwapCommandCenter {
 				<div class="sgc-ai-foot"><span>${SGC.esc(a.scope)} · ${a.source === "大模型" ? SGC.esc(a.model) : "规则引擎"}</span>
 				<span>${t(a.generated_at)} 生成 · 有效至 ${t(a.expires_at)}</span></div>`);
 		} catch (e) {
-			$body.html("分析暂不可用");
+			if (district === this.district) $body.html(`分析暂不可用：${SGC.esc(e.message || "请稍后重试")}`);
 		}
 	}
 }

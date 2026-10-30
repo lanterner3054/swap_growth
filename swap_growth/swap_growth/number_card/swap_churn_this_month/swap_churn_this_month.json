@@ -1,0 +1,21 @@
+{
+ "doctype": "Number Card",
+ "name": "Swap Churn This Month",
+ "label": "本月退租",
+ "type": "Custom",
+ "method": "swap_growth.api.card_churn_this_month",
+ "document_type": "Rider Service Record",
+ "is_public": 1,
+ "is_standard": 1,
+ "module": "Swap Growth",
+ "color": "#ECAD4B",
+ "show_percentage_stats": 0,
+ "filters_json": "[]",
+ "dynamic_filters_json": "[]",
+ "modified": "2026-10-30 12:00:00.000000",
+ "creation": "2026-10-30 12:00:00.000000",
+ "owner": "Administrator",
+ "modified_by": "Administrator",
+ "docstatus": 0,
+ "idx": 0
+}

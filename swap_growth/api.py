@@ -327,3 +327,70 @@ def simulate_event():
 	doc.insert()
 	doc.submit()
 	return doc.name
+
+
+# ---------------------------------------------------------------- 工作区数字卡片
+
+
+def _card(value, route, fieldtype="Int", route_options=None):
+	return {"value": value, "fieldtype": fieldtype, "route": route, "route_options": route_options}
+
+
+def _month_records(event_type):
+	return {"event_type": event_type, "docstatus": 1, "event_date": [">=", str(get_first_day(today()))]}
+
+
+def _count_month(event_type):
+	districts = resolve_districts(None)
+	return frappe.db.count(
+		"Rider Service Record",
+		{
+			"docstatus": 1,
+			"event_type": event_type,
+			"event_date": [">=", get_first_day(today())],
+			"district": ["in", districts],
+		},
+	)
+
+
+@frappe.whitelist()
+def card_active_riders(filters=None):
+	# 轻量查询：每位骑手最新一张单据不是退租即为活跃（在租或暂停），与大屏口径一致
+	districts = resolve_districts(None)
+	value = frappe.db.sql(
+		"""select count(*) from (
+			select substring_index(group_concat(event_type order by event_date desc, creation desc), ',', 1) as last_event
+			from `tabRider Service Record`
+			where docstatus = 1 and district in %(districts)s
+			group by rider_id
+		) t where last_event != %(churn)s""",
+		{"districts": districts, "churn": EVENT_CHURN},
+	)[0][0]
+	return _card(value, ["swap-command-center"])
+
+
+@frappe.whitelist()
+def card_new_this_month(filters=None):
+	return _card(
+		_count_month(EVENT_NEW), ["List", "Rider Service Record"], route_options=_month_records(EVENT_NEW)
+	)
+
+
+@frappe.whitelist()
+def card_churn_this_month(filters=None):
+	return _card(
+		_count_month(EVENT_CHURN), ["List", "Rider Service Record"], route_options=_month_records(EVENT_CHURN)
+	)
+
+
+@frappe.whitelist()
+def card_high_risk(filters=None):
+	# 风险评分计算量较大，单独缓存 10 分钟
+	districts = resolve_districts(None)
+	key = f"swap_growth:card_risk:{'|'.join(districts)}"
+	value = frappe.cache.get_value(key)
+	if value is None:
+		risk_list, _ = score_riders(load_events(districts), districts)
+		value = sum(1 for r in risk_list if r["level"] == "高")
+		frappe.cache.set_value(key, value, expires_in_sec=600)
+	return _card(value, ["query-report", "Rider Churn Risk"])

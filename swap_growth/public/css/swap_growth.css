@@ -1,1 +1,21 @@
 /* 全局样式（大屏与分析页的样式在各自页面中按需加载） */
+
+/* 报表单元格点击展开全文 */
+.dt-scrollable .dt-cell__content { cursor: default; }
+.sg-cell-pop {
+	display: none;
+	position: fixed;
+	z-index: 1050;
+	padding: 6px 10px;
+	background: var(--card-bg, #fff);
+	color: var(--text-color);
+	border: 1px solid var(--border-color);
+	border-radius: 6px;
+	box-shadow: var(--shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.12));
+	font-size: var(--text-md, 13px);
+	line-height: 1.6;
+	white-space: normal;
+	word-break: break-all;
+	max-height: 60vh;
+	overflow: auto;
+}

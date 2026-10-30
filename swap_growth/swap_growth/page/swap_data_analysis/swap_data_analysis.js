@@ -14,6 +14,20 @@ frappe.pages["swap-data-analysis"].on_page_show = function (wrapper) {
 	}
 };
 
+// 数据分析在后台生成：先请求，若正在生成则每 3 秒轮询一次，最多等 4 分钟
+window.swap_growth_fetch_analysis = async function (district, force, on_wait) {
+	let r = (await frappe.call({ method: "swap_growth.analysis.get_analysis", args: { district, force: force ? 1 : 0 } })).message;
+	const deadline = Date.now() + 4 * 60 * 1000;
+	while (r.status === "running") {
+		on_wait && on_wait();
+		if (Date.now() > deadline) throw new Error("分析生成超时，请稍后重试");
+		await new Promise((resolve) => setTimeout(resolve, 3000));
+		r = (await frappe.call({ method: "swap_growth.analysis.poll_analysis", args: { district: r.district, since: r.since } })).message;
+	}
+	if (r.status !== "done") throw new Error("分析生成失败，请稍后重试");
+	return r;
+};
+
 class SwapDataAnalysis {
 	constructor(page) {
 		this.page = page;
@@ -65,18 +79,23 @@ class SwapDataAnalysis {
 	}
 
 	async load(force) {
-		const scope_label = this.district || "全杭州";
-		this.$body.html(`<div class="sga-loading"><div class="spinner"></div>
-			${force ? "正在重新分析" : "正在读取"} ${frappe.utils.escape_html(scope_label)} 的数据分析…<br>
-			<small>若调用大模型，通常需要 15~40 秒；3 小时内再次打开会直接复用结果。</small></div>`);
+		const district = this.district;
+		const token = (this.load_token = (this.load_token || 0) + 1);
+		const scope_label = frappe.utils.escape_html(district || "全杭州");
+		const waiting = (text) =>
+			this.$body.html(`<div class="sga-loading"><div class="spinner"></div>${text}<br>
+				<small>若调用大模型，通常需要 15~40 秒，期间可正常浏览其他页面；3 小时内再次打开会直接复用结果。</small></div>`);
+		waiting(`正在读取 ${scope_label} 的数据分析…`);
 		try {
-			const r = await frappe.call({
-				method: "swap_growth.analysis.get_analysis",
-				args: { district: this.district, force: force ? 1 : 0 },
-			});
-			this.render(r.message);
+			const a = await swap_growth_fetch_analysis(district, force, () =>
+				waiting(`${force ? "正在重新分析" : "正在生成"} ${scope_label} 的数据分析…`)
+			);
+			if (token === this.load_token) this.render(a);
 		} catch (e) {
-			this.$body.html(`<div class="sga-loading">分析失败，请稍后重试。</div>`);
+			if (token !== this.load_token) return;
+			this.$body.html(`<div class="sga-loading">${frappe.utils.escape_html(e.message || "分析失败，请稍后重试。")}
+				<br><button class="btn btn-default btn-sm" style="margin-top:12px">重试</button></div>`);
+			this.$body.find("button").on("click", () => this.load(force));
 		}
 	}
 

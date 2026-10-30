@@ -42,6 +42,10 @@ frappe.query_reports["Rider Growth Analysis"] = {
 		return value;
 	},
 
+	after_datatable_render(datatable) {
+		swap_growth.enhance_datatable(datatable);
+	},
+
 	onload(report) {
 		report.page.add_inner_button("数据分析", () => {
 			frappe.route_options = { district: report.get_filter_value("district") || "" };

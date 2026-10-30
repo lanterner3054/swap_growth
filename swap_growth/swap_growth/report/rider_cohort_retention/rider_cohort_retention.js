@@ -29,6 +29,10 @@ frappe.query_reports["Rider Cohort Retention"] = {
 		return value;
 	},
 
+	after_datatable_render(datatable) {
+		swap_growth.enhance_datatable(datatable);
+	},
+
 	onload(report) {
 		report.page.add_inner_button("增长分析报表", () => frappe.set_route("query-report", "Rider Growth Analysis"));
 		report.page.set_indicator("对比不同渠道的留存曲线，可识别补贴获客质量", "blue");
