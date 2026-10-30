@@ -8,7 +8,7 @@ frappe.query_reports["Rider Growth Analysis"] = {
 		{ fieldname: "to_date", label: "结束日期", fieldtype: "Date", reqd: 1, default: frappe.datetime.get_today() },
 		{ fieldname: "granularity", label: "统计粒度", fieldtype: "Select", options: "周\n月\n季", default: "月", reqd: 1 },
 		{ fieldname: "chart_view", label: "图表视图", fieldtype: "Select",
-			options: "新开通与退租\n活跃骑手趋势\n流失率与续费率\n月流水", default: "新开通与退租" },
+			options: "新开通与退租\n活跃骑手趋势\n流失率与续费率\nMRR 变动\n月流水", default: "新开通与退租" },
 		{ fieldname: "district", label: "所在区", fieldtype: "Link", options: "Swap District" },
 		{ fieldname: "station", label: "换电站点", fieldtype: "Link", options: "Swap Station",
 			get_query: () => {
@@ -31,6 +31,10 @@ frappe.query_reports["Rider Growth Analysis"] = {
 		}
 		if (column.fieldname === "churn_rate" && data.churn_rate >= 8) {
 			return `<span style="color:var(--red-600);font-weight:600">${value}</span>`;
+		}
+		if (column.fieldname === "quick_ratio" && data.quick_ratio != null) {
+			const color = data.quick_ratio >= 1 ? "var(--green-600)" : "var(--red-600)";
+			return `<div style="text-align:right;color:${color};font-weight:600">${data.quick_ratio.toFixed(2)}</div>`;
 		}
 		if (column.fieldname === "returning" && data.returning > 0) {
 			return `<span style="color:var(--blue-600);font-weight:600">${value}</span>`;
@@ -56,6 +60,9 @@ frappe.query_reports["Rider Growth Analysis"] = {
 					<li><b>回流</b>：曾退租后再次开通的骑手</li>
 					<li><b>月流水(MRR)</b> = 期末在租骑手当前套餐月费之和（暂停骑手不计）</li>
 					<li><b>押金沉淀</b> = 期末活跃且以押金方式开通的骑手押金合计</li>
+					<li><b>MRR 变动</b>：新增（首次开通）、扩张（升级差额）、恢复（回流开通、暂停后恢复）、收缩（暂停）、流失（在租退租）</li>
+					<li><b>增长质量比</b> =（新增 + 扩张 + 恢复 MRR）÷（流失 + 收缩 MRR）。大于 1 表示收入在增长，订阅行业通常以约 4 为健康水平</li>
+					<li>标注"进行中"的周期尚未结束，平均流失率只统计已结束的周期</li>
 				</ul>`,
 			});
 		});

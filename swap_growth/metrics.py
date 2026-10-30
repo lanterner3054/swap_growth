@@ -29,6 +29,7 @@ EVENT_FIELDS = [
 	"name",
 	"rider_id",
 	"rider_name",
+	"phone",
 	"event_type",
 	"event_date",
 	"district",
@@ -123,7 +124,7 @@ class Replayer:
 		if s is None:
 			s = self.state[ev.rider_id] = {"rider_id": ev.rider_id, "first_open": None, "events": 0}
 		s["events"] += 1
-		for key in DIMENSIONS + ("rider_name", "team_name", "account_manager"):
+		for key in DIMENSIONS + ("rider_name", "phone", "team_name", "account_manager"):
 			if ev.get(key):
 				s[key] = ev.get(key)
 		s["last_record"] = ev.name
@@ -203,30 +204,50 @@ def default_range():
 
 
 def period_table(events, periods, filters=None):
+	"""逐周期统计骑手流量与 MRR 变动。
+
+	MRR 变动参照订阅分析的通行口径（新增 / 扩张 / 恢复 / 收缩 / 流失）：
+	- 新增：首次开通的月费；恢复：回流骑手再开通、暂停后恢复续费的月费；
+	- 扩张：升级套餐带来的月费差额；收缩：暂停导致暂时不计的月费；流失：在租骑手退租的月费。
+	期初 MRR + 新增 + 扩张 + 恢复 - 收缩 - 流失 = 期末 MRR（不加维度筛选时严格成立）。
+	"""
 	filters = clean_filters(filters)
 	rep = Replayer(events)
-	idx = 0
+	today_d = getdate(today())
 	rows = []
 	for label, start, end in periods:
 		rep.advance(start)
 		opening = snapshot(rep.active_riders(filters))
 		flows = Counter()
+		mrr = Counter()
 		returning = 0
 		reasons = Counter()
-		while idx < len(events) and events[idx].event_date < start:
-			idx += 1
-		j = idx
-		while j < len(events) and events[j].event_date < end:
-			ev = events[j]
+		while rep.pos < len(events) and events[rep.pos].event_date < end:
+			ev = events[rep.pos]
 			if matches(ev, filters):
-				flows[ev.event_type] += 1
-				if ev.event_type == EVENT_NEW and ev.is_returning:
-					returning += 1
-				if ev.event_type == EVENT_CHURN:
+				prev = rep.state.get(ev.rider_id) or {}
+				prev_status, prev_fee = prev.get("status"), prev.get("monthly_fee") or 0
+				fee = ev.monthly_fee or 0
+				etype = ev.event_type
+				flows[etype] += 1
+				if etype == EVENT_NEW:
+					if ev.is_returning:
+						returning += 1
+						mrr["reactivation"] += fee
+					else:
+						mrr["new"] += fee
+				elif etype == EVENT_RENEW and prev_status == "暂停":
+					mrr["reactivation"] += fee
+				elif etype == EVENT_UPGRADE:
+					mrr["expansion"] += max(fee - prev_fee, 0) if prev_status == "在租" else fee
+				elif etype == EVENT_PAUSE and prev_status == "在租":
+					mrr["contraction"] += prev_fee
+				elif etype == EVENT_CHURN:
 					reasons[ev.churn_reason or "其他"] += 1
-			j += 1
-		idx = j
-		rep.advance(end)
+					if prev_status == "在租":
+						mrr["churn"] += prev_fee
+			rep.apply(ev)
+			rep.pos += 1
 		closing = snapshot(rep.active_riders(filters))
 		new, churn, renew, pause = (
 			flows[EVENT_NEW],
@@ -236,11 +257,14 @@ def period_table(events, periods, filters=None):
 		)
 		base = opening["active"] or new
 		decisions = renew + churn + pause
+		gained = mrr["new"] + mrr["expansion"] + mrr["reactivation"]
+		lost = mrr["churn"] + mrr["contraction"]
 		rows.append(
 			{
 				"period": label,
 				"start": start,
 				"end": end - timedelta(days=1),
+				"partial": end > today_d + timedelta(days=1),
 				"opening": opening["active"],
 				"new": new,
 				"returning": returning,
@@ -253,7 +277,15 @@ def period_table(events, periods, filters=None):
 				"paused": closing["paused"],
 				"churn_rate": round(churn * 100.0 / base, 2) if base else 0,
 				"renew_rate": round(renew * 100.0 / decisions, 2) if decisions else 0,
+				"mrr_opening": opening["mrr"],
 				"mrr": closing["mrr"],
+				"mrr_new": mrr["new"],
+				"mrr_expansion": mrr["expansion"],
+				"mrr_reactivation": mrr["reactivation"],
+				"mrr_contraction": mrr["contraction"],
+				"mrr_churn": mrr["churn"],
+				"mrr_net": gained - lost,
+				"quick_ratio": round(gained / lost, 2) if lost else None,
 				"deposit": closing["deposit"],
 				"reasons": dict(reasons),
 			}
@@ -266,8 +298,9 @@ def summarize(rows):
 		return {}
 	total_new = sum(r["new"] for r in rows)
 	total_churn = sum(r["churn"] for r in rows)
-	rates = [r["churn_rate"] for r in rows if r["opening"]]
-	renew_rates = [r["renew_rate"] for r in rows if r["renew"] or r["churn"]]
+	done = [r for r in rows if not r.get("partial")] or rows
+	rates = [r["churn_rate"] for r in done if r["opening"]]
+	renew_rates = [r["renew_rate"] for r in done if r["renew"] or r["churn"]]
 	return {
 		"closing": rows[-1]["closing"],
 		"opening": rows[0]["opening"],
@@ -279,7 +312,22 @@ def summarize(rows):
 		"avg_renew_rate": round(sum(renew_rates) / len(renew_rates), 2) if renew_rates else 0,
 		"mrr": rows[-1]["mrr"],
 		"deposit": rows[-1]["deposit"],
+		"mrr_gained": sum(r["mrr_new"] + r["mrr_expansion"] + r["mrr_reactivation"] for r in rows),
+		"mrr_lost": sum(r["mrr_churn"] + r["mrr_contraction"] for r in rows),
+		"quick_ratio": quick_ratio(rows),
 	}
+
+
+def quick_ratio(rows):
+	"""增长质量比 =（新增 + 扩张 + 恢复 MRR）÷（流失 + 收缩 MRR），>1 增长，≈4 为健康。"""
+	gained = sum(r["mrr_new"] + r["mrr_expansion"] + r["mrr_reactivation"] for r in rows)
+	lost = sum(r["mrr_churn"] + r["mrr_contraction"] for r in rows)
+	return round(gained / lost, 2) if lost else None
+
+
+def complete_rows(rows):
+	"""剔除尚未结束的当期，避免"本月才过几天"导致流失率偏低等误判。"""
+	return [r for r in rows if not r.get("partial")]
 
 
 # ---------------------------------------------------------------- 同期群
