@@ -41,7 +41,7 @@ class SwapDataAnalysis {
 		this.charts = {};
 		this.$body = $(`<div class="sga"></div>`).appendTo(page.main);
 		this.make_toolbar();
-		frappe.require(["/assets/swap_growth/js/lib/echarts.min.js", "/assets/swap_growth/css/data_analysis.css"], () =>
+		frappe.require(["/assets/swap_growth/js/lib/echarts.min.js", "data_analysis.bundle.css"], () =>
 			this.init()
 		);
 	}

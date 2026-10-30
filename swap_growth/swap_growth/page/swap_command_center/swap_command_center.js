@@ -68,7 +68,7 @@ class SwapCommandCenter {
 		this.map_name = null;
 		this.make_toolbar();
 		this.make_layout();
-		frappe.require(["/assets/swap_growth/js/lib/echarts.min.js", "/assets/swap_growth/css/command_center.css"], () =>
+		frappe.require(["/assets/swap_growth/js/lib/echarts.min.js", "command_center.bundle.css"], () =>
 			this.init()
 		);
 	}

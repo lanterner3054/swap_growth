@@ -7,6 +7,7 @@
 """
 
 import json
+import time
 from collections import Counter
 
 import frappe
@@ -396,54 +397,96 @@ def build_metrics(district=None):
 def call_llm(settings, messages, max_tokens=16384, json_mode=True, timeout=None):
 	"""调用 OpenAI 兼容接口（DeepSeek / 智谱 GLM）。
 
-	- 尽量关闭或压低思考：thinking=disabled（GLM-4.x、DeepSeek 等可关闭），
-	  reasoning_effort=low（GLM-5.3 系列始终思考、无法关闭，只能降低强度）；
+	- 尽量关闭或压低思考：thinking=disabled（GLM-4.x、DeepSeek 等可关闭）；
+	  GLM-5 系列始终思考、无法关闭，额外传 reasoning_effort=low 降低强度；
 	- 思考内容计入 max_tokens，因此输出上限给足；若仍因长度截断且没有正文，加倍上限再试一次；
-	- 服务商不支持某个可选参数返回 400 时逐步去掉可选参数，优先保留"关闭思考"。
+	- 服务商不支持某个可选参数返回 400 时逐步去掉可选参数，优先保留"关闭思考"；
+	- 免费模型并发很低：本应用同一时刻只发一个模型请求；遇到 429 按退避时间自动重试。
 	"""
 	api_key = settings.get_password("api_key", raise_exception=False)
 	if not api_key:
 		frappe.throw("请先在《换电增长设置》中填写 API Key")
-	base = {"model": settings.resolved_model(), "messages": messages, "temperature": 0.3}
+	model = settings.resolved_model()
+	base = {"model": model, "messages": messages, "temperature": 0.3}
 	thinking_off = {"thinking": {"type": "disabled"}}
-	low_effort = {"reasoning_effort": "low"}
+	if model.lower().startswith("glm-5"):
+		thinking_off["reasoning_effort"] = "low"
 	json_fmt = {"response_format": {"type": "json_object"}} if json_mode else {}
-	variants = [
-		{**thinking_off, **low_effort, **json_fmt},
-		{**thinking_off, **json_fmt},
-		{**thinking_off, **low_effort},
-		thinking_off,
-		{},
-	]
+	variants = []
+	for v in ({**thinking_off, **json_fmt}, thinking_off, {"thinking": {"type": "disabled"}}, {}):
+		if v not in variants:
+			variants.append(v)
 	url = f"{settings.resolved_base_url()}/chat/completions"
 	headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 	timeout = timeout or int(settings.timeout or 90)
 
+	def post(body):
+		for wait in (3, 6, 12, 20, None):
+			resp = requests.post(url, headers=headers, json=body, timeout=timeout)
+			if resp.status_code != 429 or wait is None:
+				return resp
+			retry_after = resp.headers.get("Retry-After")
+			time.sleep(min(int(retry_after), 30) if (retry_after or "").isdigit() else wait)
+		return resp
+
 	def request(limit):
 		resp = None
-		for extra in variants:
-			resp = requests.post(
-				url, headers=headers, json={**base, **extra, "max_tokens": limit}, timeout=timeout
-			)
+		for i, extra in enumerate(variants):
+			if i:
+				time.sleep(1)  # 降级重试前稍等，避免触发频率限制
+			resp = post({**base, **extra, "max_tokens": limit})
 			if resp.status_code != 400:
 				break
 		if resp.status_code >= 400:
-			raise LLMError(f"模型接口返回 {resp.status_code}：{resp.text[:300]}", status=resp.status_code)
+			raise LLMError(
+				f"模型接口返回 {resp.status_code}：{resp.text[:300]}",
+				status=resp.status_code,
+				provider_message=provider_message(resp),
+			)
 		choice = resp.json()["choices"][0]
 		return ((choice.get("message") or {}).get("content") or ""), choice.get("finish_reason")
 
-	content, reason = request(max_tokens)
-	if not content.strip() and reason == "length":
-		content, reason = request(min(max_tokens * 2, 32768))
+	with llm_slot():
+		content, reason = request(max_tokens)
+		if not content.strip() and reason == "length":
+			content, reason = request(min(max_tokens * 2, 32768))
 	if not content.strip():
 		raise LLMError(f"模型没有返回正文（finish_reason={reason}），思考过程耗尽了输出额度")
 	return content
 
 
+def provider_message(resp):
+	try:
+		err = resp.json().get("error") or {}
+		return (err.get("message") or "")[:120]
+	except Exception:
+		return ""
+
+
+class llm_slot:
+	"""全局串行：本应用同一时刻只占用一个模型并发（免费模型通常只允许 1~2 个并发）。"""
+
+	def __init__(self, wait=180):
+		self.key = frappe.cache.make_key("swap_growth:llm_slot")
+		self.wait = wait
+
+	def __enter__(self):
+		deadline = time.time() + self.wait
+		while not frappe.cache.set(self.key, "1", nx=True, ex=300):
+			if time.time() > deadline:
+				break  # 等太久就直接请求，由服务商的限流兜底
+			time.sleep(1)
+		return self
+
+	def __exit__(self, *exc):
+		frappe.cache.delete(self.key)
+
+
 class LLMError(Exception):
-	def __init__(self, message, status=None):
+	def __init__(self, message, status=None, provider_message=""):
 		super().__init__(message)
 		self.status = status
+		self.provider_message = provider_message
 
 
 def explain_error(e):
@@ -459,7 +502,10 @@ def explain_error(e):
 	if status == 404:
 		return "模型名称或接口地址不正确"
 	if status == 429:
-		return "调用频率或额度受限（免费模型常见），请稍后重试"
+		hint = getattr(e, "provider_message", "")
+		return "调用频率或额度受限，已自动重试仍未成功" + (
+			f"（服务商提示：{hint}）" if hint else "，请稍后再试"
+		)
 	if "没有返回正文" in text:
 		return "该模型的深度思考耗尽了输出额度，建议换用 glm-4.7-flash 或 deepseek-v4-flash"
 	if isinstance(e, json.JSONDecodeError) or "缺少必要字段" in text:
