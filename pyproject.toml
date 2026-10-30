@@ -1,0 +1,28 @@
+[project]
+name = "swap_growth"
+authors = [{ name = "Adrian Ding", email = "ministerding@gmail.com" }]
+description = "基于 Frappe 的两轮换电用户增长分析应用"
+requires-python = ">=3.10"
+readme = "README.md"
+dynamic = ["version"]
+dependencies = []
+
+[build-system]
+requires = ["flit_core >=3.4,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.bench.frappe-dependencies]
+frappe = ">=15.0.0,<16.0.0"
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["F", "E9", "I", "UP", "B"]
+ignore = ["B904", "B007"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "tab"
+docstring-code-format = true
