@@ -78,7 +78,13 @@ def score_riders(events, districts, filters=None):
 	for s in active:
 		score, reasons = 0, []
 		t = trends.get(s["rider_id"])
-		if t and t["change"] <= -0.5:
+		paused = s.get("status") == "暂停"
+		if paused:
+			# 暂停骑手本就不换电，换电频次下降不再重复计分；按暂停时长评估恢复可能性
+			days = (today_d - s["last_event_date"]).days if s.get("last_event_date") else 0
+			score += 35 if days >= 20 else 25
+			reasons.append(f"已暂停 {days} 天，尚未恢复")
+		elif t and t["change"] <= -0.5:
 			score += 40
 			reasons.append(
 				f"换电频次骤降 {abs(t['change']) * 100:.0f}%（日均 {t['previous']}→{t['recent']} 次）"
@@ -88,9 +94,6 @@ def score_riders(events, districts, filters=None):
 			reasons.append(
 				f"换电频次下降 {abs(t['change']) * 100:.0f}%（日均 {t['previous']}→{t['recent']} 次）"
 			)
-		if s.get("status") == "暂停":
-			score += 20
-			reasons.append("当前处于暂停状态")
 		expiry = s.get("last_bill") and s["last_bill"] + timedelta(days=CARD_DAYS)
 		if expiry and 0 <= (expiry - today_d).days <= 7:
 			score += 10
