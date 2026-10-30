@@ -88,12 +88,12 @@ def get_analysis(district=None, force=0):
 
 	key = lock_key(district)
 	started = now_datetime()
-	if frappe.cache.set(key, str(started), nx=True, ex=600):
+	if frappe.cache.set(key, str(started), nx=True, ex=1200):
 		try:
 			frappe.enqueue(
 				"swap_growth.analysis.generate",
 				queue="long",
-				timeout=600,
+				timeout=1200,
 				district=district,
 			)
 		except Exception:
@@ -393,39 +393,50 @@ def build_metrics(district=None):
 # ---------------------------------------------------------------- 大模型
 
 
-def call_llm(settings, messages, max_tokens=4096, json_mode=True, timeout=None):
+def call_llm(settings, messages, max_tokens=16384, json_mode=True, timeout=None):
 	"""调用 OpenAI 兼容接口（DeepSeek / 智谱 GLM）。
 
-	默认关闭思考模式（两家新模型默认开启，会显著增加耗时并占用输出额度），并要求 JSON 输出。
-	服务商不支持某个可选参数返回 400 时逐步降级：先去掉 JSON 模式（保留关闭思考），再去掉全部可选参数。
+	- 尽量关闭或压低思考：thinking=disabled（GLM-4.x、DeepSeek 等可关闭），
+	  reasoning_effort=low（GLM-5.3 系列始终思考、无法关闭，只能降低强度）；
+	- 思考内容计入 max_tokens，因此输出上限给足；若仍因长度截断且没有正文，加倍上限再试一次；
+	- 服务商不支持某个可选参数返回 400 时逐步去掉可选参数，优先保留"关闭思考"。
 	"""
 	api_key = settings.get_password("api_key", raise_exception=False)
 	if not api_key:
 		frappe.throw("请先在《换电增长设置》中填写 API Key")
-	payload = {
-		"model": settings.resolved_model(),
-		"messages": messages,
-		"temperature": 0.3,
-		"max_tokens": max_tokens,
-	}
+	base = {"model": settings.resolved_model(), "messages": messages, "temperature": 0.3}
 	thinking_off = {"thinking": {"type": "disabled"}}
-	attempts = [{**payload, **thinking_off}, payload]
-	if json_mode:
-		attempts.insert(0, {**payload, **thinking_off, "response_format": {"type": "json_object"}})
+	low_effort = {"reasoning_effort": "low"}
+	json_fmt = {"response_format": {"type": "json_object"}} if json_mode else {}
+	variants = [
+		{**thinking_off, **low_effort, **json_fmt},
+		{**thinking_off, **json_fmt},
+		{**thinking_off, **low_effort},
+		thinking_off,
+		{},
+	]
 	url = f"{settings.resolved_base_url()}/chat/completions"
 	headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 	timeout = timeout or int(settings.timeout or 90)
-	for body in attempts:
-		resp = requests.post(url, headers=headers, json=body, timeout=timeout)
-		if resp.status_code != 400:
-			break
-	if resp.status_code >= 400:
-		raise LLMError(f"模型接口返回 {resp.status_code}：{resp.text[:300]}", status=resp.status_code)
-	choice = resp.json()["choices"][0]
-	content = (choice.get("message") or {}).get("content") or ""
+
+	def request(limit):
+		resp = None
+		for extra in variants:
+			resp = requests.post(
+				url, headers=headers, json={**base, **extra, "max_tokens": limit}, timeout=timeout
+			)
+			if resp.status_code != 400:
+				break
+		if resp.status_code >= 400:
+			raise LLMError(f"模型接口返回 {resp.status_code}：{resp.text[:300]}", status=resp.status_code)
+		choice = resp.json()["choices"][0]
+		return ((choice.get("message") or {}).get("content") or ""), choice.get("finish_reason")
+
+	content, reason = request(max_tokens)
+	if not content.strip() and reason == "length":
+		content, reason = request(min(max_tokens * 2, 32768))
 	if not content.strip():
-		reason = choice.get("finish_reason")
-		raise LLMError(f"模型没有返回正文（finish_reason={reason}），可能仍在思考模式下耗尽了输出额度")
+		raise LLMError(f"模型没有返回正文（finish_reason={reason}），思考过程耗尽了输出额度")
 	return content
 
 
@@ -449,6 +460,8 @@ def explain_error(e):
 		return "模型名称或接口地址不正确"
 	if status == 429:
 		return "调用频率或额度受限（免费模型常见），请稍后重试"
+	if "没有返回正文" in text:
+		return "该模型的深度思考耗尽了输出额度，建议换用 glm-4.7-flash 或 deepseek-v4-flash"
 	if isinstance(e, json.JSONDecodeError) or "缺少必要字段" in text:
 		return "模型返回的内容不是规定的格式"
 	return text[:120]
@@ -464,7 +477,7 @@ def llm_analysis(settings, metrics):
 			+ json.dumps(data, ensure_ascii=False),
 		},
 	]
-	timeout = max(int(settings.timeout or 0), 180)  # 后台执行，不受网页请求超时限制
+	timeout = max(int(settings.timeout or 0), 240)  # 后台执行，不受网页请求超时限制；思考型模型需要更久
 	last_error = None
 	for _ in range(2):  # 返回格式不对时再请求一次
 		content = call_llm(settings, messages, timeout=timeout)

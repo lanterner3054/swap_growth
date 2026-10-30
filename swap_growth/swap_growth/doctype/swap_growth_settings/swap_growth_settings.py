@@ -55,8 +55,8 @@ def test_connection():
 				{"role": "system", "content": "你只输出 JSON 对象。"},
 				{"role": "user", "content": '请原样输出：{"ok": true, "message": "连接成功"}'},
 			],
-			max_tokens=200,
-			timeout=60,
+			max_tokens=2048,
+			timeout=90,
 		)
 		parse_json(reply)
 	except Exception as e:

@@ -14,16 +14,21 @@ frappe.pages["swap-data-analysis"].on_page_show = function (wrapper) {
 	}
 };
 
-// 数据分析在后台生成：先请求，若正在生成则每 3 秒轮询一次，最多等 4 分钟
-window.swap_growth_fetch_analysis = async function (district, force, on_wait) {
+// 数据分析在后台生成：先请求，若正在生成则每 3 秒轮询一次，最多等 8 分钟
+// is_active：调用方已切换区域或离开时返回 false，轮询随即停止，不再改动界面
+window.swap_growth_fetch_analysis = async function (district, force, on_wait, is_active = () => true) {
+	const cancelled = () => Object.assign(new Error("cancelled"), { cancelled: true });
 	let r = (await frappe.call({ method: "swap_growth.analysis.get_analysis", args: { district, force: force ? 1 : 0 } })).message;
-	const deadline = Date.now() + 4 * 60 * 1000;
+	const deadline = Date.now() + 8 * 60 * 1000;
 	while (r.status === "running") {
+		if (!is_active()) throw cancelled();
 		on_wait && on_wait();
 		if (Date.now() > deadline) throw new Error("分析生成超时，请稍后重试");
 		await new Promise((resolve) => setTimeout(resolve, 3000));
+		if (!is_active()) throw cancelled();
 		r = (await frappe.call({ method: "swap_growth.analysis.poll_analysis", args: { district: r.district, since: r.since } })).message;
 	}
+	if (!is_active()) throw cancelled();
 	if (r.status !== "done") throw new Error("分析生成失败，请稍后重试");
 	return r;
 };
@@ -87,12 +92,16 @@ class SwapDataAnalysis {
 				<small>若调用大模型，通常需要 15~40 秒，期间可正常浏览其他页面；3 小时内再次打开会直接复用结果。</small></div>`);
 		waiting(`正在读取 ${scope_label} 的数据分析…`);
 		try {
-			const a = await swap_growth_fetch_analysis(district, force, () =>
-				waiting(`${force ? "正在重新分析" : "正在生成"} ${scope_label} 的数据分析…`)
+			const active = () => token === this.load_token;
+			const a = await swap_growth_fetch_analysis(
+				district,
+				force,
+				() => waiting(`${force ? "正在重新分析" : "正在生成"} ${scope_label} 的数据分析…`),
+				active
 			);
-			if (token === this.load_token) this.render(a);
+			if (active()) this.render(a);
 		} catch (e) {
-			if (token !== this.load_token) return;
+			if (e.cancelled || token !== this.load_token) return;
 			this.$body.html(`<div class="sga-loading">${frappe.utils.escape_html(e.message || "分析失败，请稍后重试。")}
 				<br><button class="btn btn-default btn-sm" style="margin-top:12px">重试</button></div>`);
 			this.$body.find("button").on("click", () => this.load(force));

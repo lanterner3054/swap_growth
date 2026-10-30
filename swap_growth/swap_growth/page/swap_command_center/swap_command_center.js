@@ -15,16 +15,21 @@ frappe.pages["swap-command-center"].on_page_hide = function () {
 	if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
 };
 
-// 数据分析在后台生成：先请求，若正在生成则每 3 秒轮询一次，最多等 4 分钟
-window.swap_growth_fetch_analysis = async function (district, force, on_wait) {
+// 数据分析在后台生成：先请求，若正在生成则每 3 秒轮询一次，最多等 8 分钟
+// is_active：调用方已切换区域或离开时返回 false，轮询随即停止，不再改动界面
+window.swap_growth_fetch_analysis = async function (district, force, on_wait, is_active = () => true) {
+	const cancelled = () => Object.assign(new Error("cancelled"), { cancelled: true });
 	let r = (await frappe.call({ method: "swap_growth.analysis.get_analysis", args: { district, force: force ? 1 : 0 } })).message;
-	const deadline = Date.now() + 4 * 60 * 1000;
+	const deadline = Date.now() + 8 * 60 * 1000;
 	while (r.status === "running") {
+		if (!is_active()) throw cancelled();
 		on_wait && on_wait();
 		if (Date.now() > deadline) throw new Error("分析生成超时，请稍后重试");
 		await new Promise((resolve) => setTimeout(resolve, 3000));
+		if (!is_active()) throw cancelled();
 		r = (await frappe.call({ method: "swap_growth.analysis.poll_analysis", args: { district: r.district, since: r.since } })).message;
 	}
+	if (!is_active()) throw cancelled();
 	if (r.status !== "done") throw new Error("分析生成失败，请稍后重试");
 	return r;
 };
@@ -558,8 +563,11 @@ class SwapCommandCenter {
 		const district = this.district;
 		const $body = this.$outer.find(".sgc-ai-body").addClass("sgc-loading").removeAttr("style").html("正在读取分析结果…");
 		try {
-			const a = await swap_growth_fetch_analysis(district, false, () =>
-				$body.html("正在生成分析…<br><small>大模型约需 15~40 秒，可先查看其他面板</small>")
+			const a = await swap_growth_fetch_analysis(
+				district,
+				false,
+				() => $body.html("正在生成分析…<br><small>大模型约需 15~60 秒，可先查看其他面板</small>"),
+				() => district === this.district
 			);
 			if (district !== this.district) return; // 期间已切换区域
 			this.$outer.find(".sgc-engine").toggleClass("rule", a.source !== "大模型")
@@ -576,7 +584,7 @@ class SwapCommandCenter {
 				<div class="sgc-ai-foot"><span>${SGC.esc(a.scope)} · ${a.source === "大模型" ? SGC.esc(a.model) : "规则引擎"}</span>
 				<span>${t(a.generated_at)} 生成 · 有效至 ${t(a.expires_at)}</span></div>`);
 		} catch (e) {
-			if (district === this.district) $body.html(`分析暂不可用：${SGC.esc(e.message || "请稍后重试")}`);
+			if (!e.cancelled && district === this.district) $body.html(`分析暂不可用：${SGC.esc(e.message || "请稍后重试")}`);
 		}
 	}
 }
