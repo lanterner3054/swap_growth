@@ -7,6 +7,7 @@
 """
 
 import json
+import time
 from collections import Counter
 
 import frappe
@@ -64,7 +65,20 @@ def get_analysis(district=None, force=0):
 		cached = find_cached(district)
 		if cached:
 			return to_payload(cached, cached_hit=True)
-	return to_payload(run_analysis(district, settings), cached_hit=False)
+
+	# 同一范围同一时刻只生成一次：大屏和分析页同时打开、或多人同时点击时，后来者等待并复用结果
+	lock_key = frappe.cache.make_key(f"swap_growth:analysis_lock:{district or 'all'}")
+	if not frappe.cache.set(lock_key, frappe.session.user, nx=True, ex=150):
+		started = now_datetime()
+		for _ in range(75):
+			time.sleep(2)
+			done = find_cached(district, since=started if force else None)
+			if done:
+				return to_payload(done, cached_hit=True)
+	try:
+		return to_payload(run_analysis(district, settings), cached_hit=False)
+	finally:
+		frappe.cache.delete(lock_key)
 
 
 @frappe.whitelist()
@@ -79,8 +93,10 @@ def get_analysis_scopes():
 	return scopes
 
 
-def find_cached(district):
+def find_cached(district, since=None):
 	filters = {"expires_at": (">", now_datetime())}
+	if since:
+		filters["generated_at"] = (">=", since)
 	if district:
 		filters["district"] = district
 	else:
@@ -168,7 +184,14 @@ def build_metrics(district=None):
 			"流失率%": r["churn_rate"],
 			"续费率%": r["renew_rate"],
 			"月流水": r["mrr"],
+			"新增MRR": r["mrr_new"],
+			"扩张MRR": r["mrr_expansion"],
+			"恢复MRR": r["mrr_reactivation"],
+			"收缩MRR": r["mrr_contraction"],
+			"流失MRR": r["mrr_churn"],
+			"增长质量比": r["quick_ratio"],
 			"主要退租原因": max(r["reasons"], key=r["reasons"].get) if r["reasons"] else None,
+			"是否未满月": r["partial"],
 		}
 		for r in rows
 	]
@@ -265,6 +288,9 @@ def build_metrics(district=None):
 			"平均月流失率%": summary.get("avg_churn_rate"),
 			"平均续费率%": summary.get("avg_renew_rate"),
 			"当前月流水": summary.get("mrr"),
+			"12个月增长质量比": summary.get("quick_ratio"),
+			"说明": "当月尚未结束（是否未满月=true）的数据不完整，比较趋势时请以已结束月份为准；"
+			"增长质量比 =（新增+扩张+恢复 MRR）÷（流失+收缩 MRR），>1 表示收入在增长，约 4 为健康。",
 			"押金沉淀": summary.get("deposit"),
 		},
 		"monthly": monthly,
@@ -297,6 +323,11 @@ def build_metrics(district=None):
 
 
 def call_llm(settings, messages, max_tokens=1800, json_mode=True):
+	"""调用 OpenAI 兼容接口（DeepSeek / 智谱 GLM）。
+
+	默认关闭思考模式（两家新模型默认开启，会显著增加耗时），并要求 JSON 输出；
+	若服务商不支持这些可选参数返回 400，则去掉可选参数重试一次。
+	"""
 	api_key = settings.get_password("api_key", raise_exception=False)
 	if not api_key:
 		frappe.throw("请先在《换电增长设置》中填写 API Key")
@@ -306,14 +337,15 @@ def call_llm(settings, messages, max_tokens=1800, json_mode=True):
 		"temperature": 0.3,
 		"max_tokens": max_tokens,
 	}
+	optional = {"thinking": {"type": "disabled"}}
 	if json_mode:
-		payload["response_format"] = {"type": "json_object"}
-	resp = requests.post(
-		f"{settings.resolved_base_url()}/chat/completions",
-		headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-		json=payload,
-		timeout=int(settings.timeout or 90),
-	)
+		optional["response_format"] = {"type": "json_object"}
+	url = f"{settings.resolved_base_url()}/chat/completions"
+	headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+	timeout = int(settings.timeout or 90)
+	resp = requests.post(url, headers=headers, json={**payload, **optional}, timeout=timeout)
+	if resp.status_code == 400:
+		resp = requests.post(url, headers=headers, json=payload, timeout=timeout)
 	if resp.status_code >= 400:
 		raise Exception(f"模型接口返回 {resp.status_code}：{resp.text[:300]}")
 	return resp.json()["choices"][0]["message"]["content"]
@@ -387,13 +419,15 @@ def rule_analysis(m):
 			"site_suggestions": [],
 		}
 
-	_first, _last = monthly[0], monthly[-1]
 	opening = ov.get("12个月前期初活跃") or 0
 	growth = round((ov["当前活跃骑手"] - opening) * 100.0 / opening, 1) if opening else None
-	worst = max(monthly, key=lambda x: x["流失率%"])
-	best_new = max(monthly, key=lambda x: x["新开通"])
-	recent = monthly[-3:]
+	# 趋势判断只用已结束的月份，避免月初数据不全造成"流失率骤降"的误判
+	complete = [x for x in monthly if not x.get("是否未满月")] or monthly
+	worst = max(complete, key=lambda x: x["流失率%"])
+	best_new = max(complete, key=lambda x: x["新开通"])
+	recent = complete[-3:]
 	recent_rate = round(sum(x["流失率%"] for x in recent) / len(recent), 2)
+	recent_label = f"{recent[0]['月份']}~{recent[-1]['月份']}"
 
 	findings.append(
 		{
@@ -473,10 +507,14 @@ def rule_analysis(m):
 		)
 
 	trend_word = "回升" if recent_rate > ov["平均月流失率%"] else "回落"
-	headline = f"{m['scope']}活跃骑手 {ov['当前活跃骑手']} 人，近 3 月流失率{trend_word}至 {recent_rate}%"
+	qr = ov.get("12个月增长质量比")
+	headline = (
+		f"{m['scope']}活跃骑手 {ov['当前活跃骑手']} 人，近 3 个完整月流失率{trend_word}至 {recent_rate}%"
+	)
 	summary = (
 		f"{m['scope']}当前活跃骑手 {ov['当前活跃骑手']} 人，月流水 {int(ov['当前月流水'] or 0):,} 元。"
-		f"近 3 个月平均流失率 {recent_rate}%，{'高于' if recent_rate > ov['平均月流失率%'] else '低于'}全年均值 {ov['平均月流失率%']}%。"
+		f"{recent_label} 平均流失率 {recent_rate}%，{'高于' if recent_rate > ov['平均月流失率%'] else '低于'}全年均值 {ov['平均月流失率%']}%"
+		f"{f'，12 个月增长质量比 {qr}' if qr else ''}。"
 		f"近 90 天退租主因是“{m['churn_reasons_90d'][0]['原因'] if m['churn_reasons_90d'] else '-'}”，"
 		f"当前识别出高风险骑手 {risk['高风险']} 人、中风险 {risk['中风险']} 人，建议优先处理供给不足站点并跟进高风险名单。"
 	)

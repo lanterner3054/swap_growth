@@ -20,7 +20,7 @@ frappe.ui.form.on("Swap Growth Settings", {
 		frm.trigger("render_demo_info");
 	},
 	provider(frm) {
-		const defaults = { DeepSeek: "deepseek-chat", 智谱GLM: "glm-4-flash" };
+		const defaults = { DeepSeek: "deepseek-v4-flash", 智谱GLM: "glm-4.7-flash" };
 		frm.set_df_property("model", "placeholder", defaults[frm.doc.provider] || "");
 	},
 	render_demo_info(frm) {

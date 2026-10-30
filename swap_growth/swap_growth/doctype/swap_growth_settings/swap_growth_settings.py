@@ -4,7 +4,8 @@
 import frappe
 from frappe.model.document import Document
 
-DEFAULT_MODELS = {"DeepSeek": "deepseek-chat", "智谱GLM": "glm-4-flash"}
+# deepseek-chat 已于 2026-07-24 下线；glm-4.7-flash 为智谱当前的免费模型
+DEFAULT_MODELS = {"DeepSeek": "deepseek-v4-flash", "智谱GLM": "glm-4.7-flash"}
 DEFAULT_BASE_URLS = {
 	"DeepSeek": "https://api.deepseek.com",
 	"智谱GLM": "https://open.bigmodel.cn/api/paas/v4",
@@ -18,8 +19,20 @@ class SwapGrowthSettings(Document):
 		if not self.timeout or self.timeout < 10:
 			self.timeout = 90
 
+	def on_update(self):
+		# 模型配置变化后，让已缓存的分析结果立即过期，下次打开即用新配置重新分析
+		before = self.get_doc_before_save()
+		fields = ("enable_llm", "provider", "model", "base_url", "api_key")
+		if before and any(before.get(f) != self.get(f) for f in fields):
+			frappe.db.set_value(
+				"Data Analysis Record",
+				{"expires_at": (">", frappe.utils.now_datetime())},
+				"expires_at",
+				frappe.utils.now_datetime(),
+			)
+
 	def resolved_model(self):
-		return (self.model or "").strip() or DEFAULT_MODELS.get(self.provider, "deepseek-chat")
+		return (self.model or "").strip() or DEFAULT_MODELS.get(self.provider, "deepseek-v4-flash")
 
 	def resolved_base_url(self):
 		return ((self.base_url or "").strip() or DEFAULT_BASE_URLS.get(self.provider, "")).rstrip("/")

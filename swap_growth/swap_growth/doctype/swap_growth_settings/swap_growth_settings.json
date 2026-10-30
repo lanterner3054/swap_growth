@@ -15,6 +15,7 @@
   "cache_hours",
   "timeout",
   "section_demo",
+  "demo_auto_refresh",
   "demo_info"
  ],
  "fields": [
@@ -50,7 +51,7 @@
    "fieldname": "model",
    "fieldtype": "Data",
    "label": "模型名称",
-   "description": "留空则使用默认：DeepSeek 为 deepseek-chat，智谱为 glm-4-flash"
+   "description": "留空则使用默认：DeepSeek 为 deepseek-v4-flash，智谱为 glm-4.7-flash。服务商更新模型后可在此填写新名称"
   },
   {
    "fieldname": "base_url",
@@ -74,6 +75,13 @@
    "fieldname": "section_demo",
    "fieldtype": "Section Break",
    "label": "演示数据"
+  },
+  {
+   "fieldname": "demo_auto_refresh",
+   "fieldtype": "Check",
+   "label": "每日自动续写演示数据",
+   "default": "1",
+   "description": "每天凌晨按同样的业务规律补充前一天至今的开通、续费、退租与换电数据，让演示数据保持「最新」"
   },
   {
    "fieldname": "demo_info",
