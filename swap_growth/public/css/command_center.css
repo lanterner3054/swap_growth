@@ -1,0 +1,551 @@
+/* 换电运营指挥中心：按 1920×1080 设计，等比缩放适配桌面与大屏 */
+.sgc-outer {
+	position: relative;
+	width: 100%;
+	overflow: hidden;
+	border-radius: 10px;
+	background: #040b1a;
+}
+.sgc-outer:fullscreen,
+.sgc-outer.sgc-full {
+	border-radius: 0;
+	background: #040b1a;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.sgc-screen {
+	--bg: #040b1a;
+	--panel: rgba(10, 30, 60, 0.55);
+	--line: rgba(63, 160, 255, 0.28);
+	--line-strong: rgba(63, 208, 255, 0.7);
+	--text: #d9e8ff;
+	--muted: #7f9bc4;
+	--cyan: #3fd0ff;
+	--green: #3ee39b;
+	--red: #ff5b6e;
+	--orange: #ffb547;
+	--purple: #a78bfa;
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 1920px;
+	height: 1080px;
+	transform-origin: 0 0;
+	color: var(--text);
+	font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
+	background:
+		radial-gradient(ellipse at 50% 40%, rgba(22, 90, 170, 0.35), transparent 60%),
+		linear-gradient(180deg, #06142c 0%, #040b1a 100%);
+	padding: 0 24px 20px;
+	box-sizing: border-box;
+}
+.sgc-outer:fullscreen .sgc-screen,
+.sgc-outer.sgc-full .sgc-screen {
+	position: absolute;
+}
+.sgc-screen * {
+	box-sizing: border-box;
+}
+.sgc-num {
+	font-family: "DIN Alternate", "Bahnschrift", "DIN", "Roboto Mono", "Consolas", sans-serif;
+	font-variant-numeric: tabular-nums;
+}
+
+/* 标题栏 */
+.sgc-header {
+	height: 88px;
+	display: grid;
+	grid-template-columns: 1fr 760px 1fr;
+	align-items: center;
+}
+.sgc-title {
+	text-align: center;
+	position: relative;
+	height: 72px;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	background: linear-gradient(90deg, transparent, rgba(63, 208, 255, 0.16), transparent);
+	border-bottom: 2px solid var(--line-strong);
+	clip-path: polygon(0 0, 100% 0, 94% 100%, 6% 100%);
+}
+.sgc-title h1 {
+	margin: 0;
+	font-size: 34px;
+	font-weight: 700;
+	letter-spacing: 8px;
+	color: #fff;
+	text-shadow: 0 0 18px rgba(63, 208, 255, 0.75);
+}
+.sgc-title small {
+	font-size: 13px;
+	color: var(--muted);
+	letter-spacing: 2px;
+}
+.sgc-hside {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	font-size: 16px;
+	color: var(--muted);
+}
+.sgc-hside.right {
+	justify-content: flex-end;
+}
+.sgc-clock {
+	font-size: 26px;
+	color: var(--cyan);
+}
+.sgc-badge {
+	padding: 4px 12px;
+	border: 1px solid var(--line);
+	border-radius: 14px;
+	font-size: 14px;
+	color: var(--text);
+	background: rgba(63, 160, 255, 0.08);
+}
+.sgc-live {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+.sgc-live::before {
+	content: "";
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--green);
+	box-shadow: 0 0 10px var(--green);
+	animation: sgc-pulse 1.6s infinite;
+}
+@keyframes sgc-pulse {
+	50% {
+		opacity: 0.3;
+	}
+}
+
+/* KPI */
+.sgc-kpis {
+	display: grid;
+	grid-template-columns: repeat(6, 1fr);
+	gap: 16px;
+	height: 112px;
+	margin-bottom: 16px;
+}
+.sgc-kpi {
+	position: relative;
+	padding: 14px 20px;
+	background: linear-gradient(135deg, rgba(20, 70, 140, 0.45), rgba(8, 25, 55, 0.6));
+	border: 1px solid var(--line);
+	border-radius: 6px;
+	overflow: hidden;
+}
+.sgc-kpi::after {
+	content: "";
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 4px;
+	height: 100%;
+	background: var(--accent, var(--cyan));
+	box-shadow: 0 0 12px var(--accent, var(--cyan));
+}
+.sgc-kpi .label {
+	font-size: 15px;
+	color: var(--muted);
+}
+.sgc-kpi .value {
+	font-size: 40px;
+	font-weight: 700;
+	color: #fff;
+	line-height: 1.25;
+}
+.sgc-kpi .value small {
+	font-size: 16px;
+	color: var(--muted);
+	margin-left: 4px;
+	font-weight: 400;
+}
+.sgc-kpi .delta {
+	font-size: 13px;
+	color: var(--muted);
+}
+.sgc-up {
+	color: var(--green) !important;
+}
+.sgc-down {
+	color: var(--red) !important;
+}
+
+/* 主体 */
+.sgc-body {
+	display: grid;
+	grid-template-columns: 470px 1fr 470px;
+	gap: 16px;
+	height: calc(1080px - 88px - 112px - 16px - 20px);
+}
+.sgc-col {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	min-height: 0;
+}
+.sgc-col > .sgc-panel {
+	flex: 1;
+}
+.sgc-panel {
+	position: relative;
+	background: var(--panel);
+	border: 1px solid var(--line);
+	border-radius: 6px;
+	padding: 12px 16px;
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+}
+.sgc-panel::before,
+.sgc-panel::after {
+	content: "";
+	position: absolute;
+	width: 14px;
+	height: 14px;
+	border-color: var(--cyan);
+	border-style: solid;
+}
+.sgc-panel::before {
+	top: -1px;
+	left: -1px;
+	border-width: 2px 0 0 2px;
+}
+.sgc-panel::after {
+	bottom: -1px;
+	right: -1px;
+	border-width: 0 2px 2px 0;
+}
+.sgc-ptitle {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	font-size: 18px;
+	font-weight: 600;
+	color: #fff;
+	padding-bottom: 8px;
+	margin-bottom: 8px;
+	border-bottom: 1px solid var(--line);
+}
+.sgc-ptitle span::before {
+	content: "";
+	display: inline-block;
+	width: 4px;
+	height: 16px;
+	margin-right: 8px;
+	vertical-align: -2px;
+	background: var(--cyan);
+}
+.sgc-ptitle em {
+	font-style: normal;
+	font-size: 13px;
+	font-weight: 400;
+	color: var(--muted);
+}
+.sgc-chart {
+	flex: 1;
+	min-height: 0;
+}
+.sgc-link {
+	cursor: pointer;
+	color: var(--cyan) !important;
+}
+.sgc-link:hover {
+	text-decoration: underline;
+}
+
+/* 区域排名 */
+.sgc-rank {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	font-size: 15px;
+}
+.sgc-rank-row {
+	display: grid;
+	grid-template-columns: 22px 64px 1fr 74px 62px;
+	align-items: center;
+	gap: 8px;
+	cursor: pointer;
+}
+.sgc-rank-row .no {
+	color: var(--muted);
+	text-align: center;
+}
+.sgc-rank-row:nth-child(-n + 3) .no {
+	color: var(--orange);
+	font-weight: 700;
+}
+.sgc-rank-bar {
+	height: 10px;
+	border-radius: 5px;
+	background: rgba(63, 160, 255, 0.12);
+	position: relative;
+}
+.sgc-rank-bar i {
+	position: absolute;
+	inset: 0 auto 0 0;
+	border-radius: 5px;
+	background: linear-gradient(90deg, #1667c9, var(--cyan));
+}
+.sgc-rank-bar b {
+	position: absolute;
+	right: 6px;
+	top: -6px;
+	font-size: 13px;
+	font-weight: 400;
+	color: #fff;
+}
+.sgc-rank-row .net,
+.sgc-rank-row .rate {
+	text-align: right;
+	font-size: 14px;
+}
+.sgc-rank-head {
+	font-size: 12px;
+	color: var(--muted);
+}
+
+/* 地图 */
+.sgc-map-wrap {
+	flex: 1;
+	position: relative;
+}
+.sgc-map-legend {
+	position: absolute;
+	right: 14px;
+	top: 52px;
+	font-size: 13px;
+	color: var(--muted);
+	line-height: 1.9;
+	text-align: right;
+	pointer-events: none;
+}
+.sgc-dot {
+	display: inline-block;
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	margin-right: 6px;
+	vertical-align: -1px;
+}
+.sgc-map-note {
+	position: absolute;
+	left: 16px;
+	bottom: 10px;
+	font-size: 12px;
+	color: var(--muted);
+}
+
+/* 数据分析 */
+.sgc-col > .sgc-ai {
+	flex: 0 0 292px;
+}
+.sgc-ai-head {
+	font-size: 17px;
+	font-weight: 600;
+	color: #fff;
+	line-height: 1.5;
+	margin-bottom: 8px;
+}
+.sgc-ai-list {
+	flex: 1;
+	overflow: hidden;
+}
+.sgc-ai-item {
+	font-size: 14px;
+	line-height: 1.6;
+	margin-bottom: 8px;
+	color: var(--text);
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+.sgc-ai-item b {
+	color: #fff;
+	margin-right: 4px;
+}
+.sgc-lv {
+	display: inline-block;
+	padding: 0 6px;
+	margin-right: 6px;
+	border-radius: 3px;
+	font-size: 12px;
+	line-height: 18px;
+}
+.sgc-lv.风险 {
+	background: rgba(255, 91, 110, 0.18);
+	color: var(--red);
+}
+.sgc-lv.关注 {
+	background: rgba(255, 181, 71, 0.18);
+	color: var(--orange);
+}
+.sgc-lv.积极 {
+	background: rgba(62, 227, 155, 0.16);
+	color: var(--green);
+}
+.sgc-ai-foot {
+	font-size: 12px;
+	color: var(--muted);
+	display: flex;
+	justify-content: space-between;
+}
+.sgc-loading {
+	color: var(--muted);
+	font-size: 14px;
+	padding: 20px 0;
+	text-align: center;
+}
+
+/* 流失预警 */
+.sgc-col > .sgc-risk {
+	flex: 0 0 280px;
+}
+.sgc-risk-list {
+	flex: 1;
+	overflow: hidden;
+}
+.sgc-risk-row {
+	display: grid;
+	grid-template-columns: 44px 1fr 56px;
+	gap: 10px;
+	align-items: center;
+	padding: 6px 0;
+	border-bottom: 1px dashed rgba(63, 160, 255, 0.15);
+	font-size: 14px;
+}
+.sgc-score {
+	width: 40px;
+	height: 40px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 17px;
+	font-weight: 700;
+	border: 2px solid var(--red);
+	color: var(--red);
+}
+.sgc-score.mid {
+	border-color: var(--orange);
+	color: var(--orange);
+}
+.sgc-risk-row .who {
+	color: #fff;
+}
+.sgc-risk-row .why {
+	color: var(--muted);
+	font-size: 12px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.sgc-btn {
+	border: 1px solid var(--line-strong);
+	background: rgba(63, 208, 255, 0.1);
+	color: var(--cyan);
+	border-radius: 4px;
+	font-size: 13px;
+	padding: 3px 8px;
+	cursor: pointer;
+}
+.sgc-btn:hover {
+	background: rgba(63, 208, 255, 0.25);
+}
+.sgc-btn[disabled] {
+	color: var(--green);
+	border-color: rgba(62, 227, 155, 0.5);
+	background: transparent;
+	cursor: default;
+}
+
+/* 实时动态 */
+.sgc-feed {
+	flex: 1;
+}
+.sgc-feed-list {
+	flex: 1;
+	overflow: hidden;
+	position: relative;
+}
+.sgc-feed-row {
+	display: grid;
+	grid-template-columns: 70px 1fr 64px;
+	gap: 8px;
+	align-items: center;
+	padding: 6px 0;
+	font-size: 14px;
+	border-bottom: 1px dashed rgba(63, 160, 255, 0.12);
+}
+.sgc-feed-row .t {
+	text-align: center;
+	border-radius: 3px;
+	font-size: 12px;
+	padding: 1px 0;
+}
+.sgc-feed-row .d {
+	color: var(--muted);
+	font-size: 12px;
+	text-align: right;
+}
+.sgc-feed-row.flash {
+	animation: sgc-flash 2.4s ease-out;
+}
+@keyframes sgc-flash {
+	0% {
+		background: rgba(63, 208, 255, 0.45);
+	}
+	100% {
+		background: transparent;
+	}
+}
+.t-新开通 {
+	background: rgba(62, 227, 155, 0.18);
+	color: var(--green);
+}
+.t-续费 {
+	background: rgba(63, 208, 255, 0.15);
+	color: var(--cyan);
+}
+.t-升级套餐 {
+	background: rgba(167, 139, 250, 0.18);
+	color: var(--purple);
+}
+.t-暂停 {
+	background: rgba(255, 181, 71, 0.18);
+	color: var(--orange);
+}
+.t-退租 {
+	background: rgba(255, 91, 110, 0.18);
+	color: var(--red);
+}
+.sgc-toast {
+	position: absolute;
+	top: 96px;
+	left: 50%;
+	transform: translateX(-50%);
+	padding: 10px 24px;
+	font-size: 18px;
+	color: #fff;
+	border: 1px solid var(--line-strong);
+	background: rgba(8, 40, 80, 0.9);
+	border-radius: 6px;
+	box-shadow: 0 0 24px rgba(63, 208, 255, 0.5);
+	opacity: 0;
+	transition: opacity 0.4s;
+	pointer-events: none;
+	z-index: 5;
+}
+.sgc-toast.show {
+	opacity: 1;
+}
