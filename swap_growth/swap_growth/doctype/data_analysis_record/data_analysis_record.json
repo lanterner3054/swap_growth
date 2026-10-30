@@ -1,0 +1,168 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-10-29 20:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "scope_label",
+  "district",
+  "source",
+  "model",
+  "column_break_t",
+  "generated_at",
+  "expires_at",
+  "requested_by",
+  "section_result",
+  "headline",
+  "summary",
+  "error_message",
+  "section_raw",
+  "result_json",
+  "metrics_json"
+ ],
+ "fields": [
+  {
+   "fieldname": "scope_label",
+   "fieldtype": "Data",
+   "label": "分析范围",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "district",
+   "fieldtype": "Link",
+   "label": "区域",
+   "options": "Swap District",
+   "in_standard_filter": 1,
+   "read_only": 1,
+   "description": "留空表示全杭州"
+  },
+  {
+   "fieldname": "source",
+   "fieldtype": "Select",
+   "label": "分析引擎",
+   "options": "大模型\n规则引擎",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "model",
+   "fieldtype": "Data",
+   "label": "模型",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_t",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "generated_at",
+   "fieldtype": "Datetime",
+   "label": "分析时间",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "expires_at",
+   "fieldtype": "Datetime",
+   "label": "有效期至",
+   "read_only": 1
+  },
+  {
+   "fieldname": "requested_by",
+   "fieldtype": "Link",
+   "label": "触发人",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_result",
+   "fieldtype": "Section Break",
+   "label": "分析结论"
+  },
+  {
+   "fieldname": "headline",
+   "fieldtype": "Data",
+   "label": "一句话结论",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "summary",
+   "fieldtype": "Small Text",
+   "label": "摘要",
+   "read_only": 1
+  },
+  {
+   "fieldname": "error_message",
+   "fieldtype": "Small Text",
+   "label": "大模型调用异常",
+   "read_only": 1,
+   "depends_on": "error_message"
+  },
+  {
+   "fieldname": "section_raw",
+   "fieldtype": "Section Break",
+   "label": "原始数据",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "result_json",
+   "fieldtype": "Code",
+   "label": "分析结果",
+   "options": "JSON",
+   "read_only": 1
+  },
+  {
+   "fieldname": "metrics_json",
+   "fieldtype": "Code",
+   "label": "分析所用指标",
+   "options": "JSON",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-29 22:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Swap Growth",
+ "name": "Data Analysis Record",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "运营总监",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "区域经理",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  }
+ ],
+ "sort_field": "generated_at",
+ "sort_order": "DESC",
+ "states": [],
+ "autoname": "hash",
+ "in_create": 1,
+ "title_field": "scope_label",
+ "description": "每次数据分析的结果留档，并作为缓存复用"
+}

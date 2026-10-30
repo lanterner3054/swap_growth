@@ -1,0 +1,115 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-10-29 20:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "district_name",
+  "adcode",
+  "manager",
+  "column_break_geo",
+  "center_lng",
+  "center_lat",
+  "sort_order"
+ ],
+ "fields": [
+  {
+   "fieldname": "district_name",
+   "fieldtype": "Data",
+   "label": "区名称",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "adcode",
+   "fieldtype": "Data",
+   "label": "行政区划代码",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "manager",
+   "fieldtype": "Link",
+   "label": "区域经理",
+   "options": "User",
+   "in_list_view": 1,
+   "description": "该区高风险骑手的跟进任务默认指派给此人"
+  },
+  {
+   "fieldname": "column_break_geo",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "center_lng",
+   "fieldtype": "Float",
+   "label": "中心经度",
+   "precision": "6"
+  },
+  {
+   "fieldname": "center_lat",
+   "fieldtype": "Float",
+   "label": "中心纬度",
+   "precision": "6"
+  },
+  {
+   "fieldname": "sort_order",
+   "fieldtype": "Int",
+   "label": "排序"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-29 22:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Swap Growth",
+ "name": "Swap District",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "运营总监",
+   "read": 1,
+   "write": 1,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "区域经理",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "换电运营专员",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  }
+ ],
+ "sort_field": "sort_order",
+ "sort_order": "ASC",
+ "states": [],
+ "autoname": "field:district_name",
+ "naming_rule": "By fieldname",
+ "title_field": "district_name",
+ "description": "杭州主城区，用于数据权限隔离与地图展示"
+}

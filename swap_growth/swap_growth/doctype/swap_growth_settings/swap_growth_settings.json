@@ -1,0 +1,122 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-10-29 20:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_llm",
+  "enable_llm",
+  "provider",
+  "api_key",
+  "column_break_llm",
+  "model",
+  "base_url",
+  "cache_hours",
+  "timeout",
+  "section_demo",
+  "demo_info"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_llm",
+   "fieldtype": "Section Break",
+   "label": "数据分析（大模型）"
+  },
+  {
+   "fieldname": "enable_llm",
+   "fieldtype": "Check",
+   "label": "启用大模型分析",
+   "default": "0",
+   "description": "未启用或调用失败时，自动使用内置规则引擎生成分析"
+  },
+  {
+   "fieldname": "provider",
+   "fieldtype": "Select",
+   "label": "模型服务商",
+   "options": "DeepSeek\n智谱GLM",
+   "default": "DeepSeek"
+  },
+  {
+   "fieldname": "api_key",
+   "fieldtype": "Password",
+   "label": "API Key"
+  },
+  {
+   "fieldname": "column_break_llm",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "model",
+   "fieldtype": "Data",
+   "label": "模型名称",
+   "description": "留空则使用默认：DeepSeek 为 deepseek-chat，智谱为 glm-4-flash"
+  },
+  {
+   "fieldname": "base_url",
+   "fieldtype": "Data",
+   "label": "接口地址",
+   "description": "留空则使用官方地址"
+  },
+  {
+   "fieldname": "cache_hours",
+   "fieldtype": "Float",
+   "label": "分析结果有效期（小时）",
+   "default": "3"
+  },
+  {
+   "fieldname": "timeout",
+   "fieldtype": "Int",
+   "label": "请求超时（秒）",
+   "default": "90"
+  },
+  {
+   "fieldname": "section_demo",
+   "fieldtype": "Section Break",
+   "label": "演示数据"
+  },
+  {
+   "fieldname": "demo_info",
+   "fieldtype": "HTML",
+   "label": "演示数据说明"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-29 22:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Swap Growth",
+ "name": "Swap Growth Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "运营总监",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "issingle": 1,
+ "description": "数据分析与演示数据设置"
+}

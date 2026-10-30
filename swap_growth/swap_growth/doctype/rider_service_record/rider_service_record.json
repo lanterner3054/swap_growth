@@ -1,0 +1,349 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-10-29 20:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_basic",
+  "naming_series",
+  "event_type",
+  "event_date",
+  "is_returning",
+  "column_break_rider",
+  "rider_id",
+  "rider_name",
+  "phone",
+  "section_profile",
+  "user_type",
+  "team_name",
+  "column_break_profile",
+  "platform",
+  "account_manager",
+  "section_package",
+  "package",
+  "previous_package",
+  "monthly_fee",
+  "column_break_deposit",
+  "deposit_mode",
+  "deposit_amount",
+  "deposit_status",
+  "section_station",
+  "station",
+  "district",
+  "column_break_channel",
+  "channel",
+  "section_churn",
+  "churn_reason",
+  "column_break_churn",
+  "churn_note",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_basic",
+   "fieldtype": "Section Break",
+   "label": "服务事件"
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "编号规则",
+   "options": "SR-.YYYY.-",
+   "default": "SR-.YYYY.-",
+   "reqd": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "print_hide": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "event_type",
+   "fieldtype": "Select",
+   "label": "事件类型",
+   "options": "新开通\n续费\n升级套餐\n暂停\n退租",
+   "reqd": 1,
+   "default": "新开通",
+   "in_list_view": 0,
+   "in_standard_filter": 1,
+   "bold": 1
+  },
+  {
+   "fieldname": "event_date",
+   "fieldtype": "Date",
+   "label": "发生日期",
+   "reqd": 1,
+   "default": "Today",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "is_returning",
+   "fieldtype": "Check",
+   "label": "回流骑手",
+   "read_only": 1,
+   "description": "曾经退租后再次开通，系统自动判断"
+  },
+  {
+   "fieldname": "column_break_rider",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "rider_id",
+   "fieldtype": "Data",
+   "label": "骑手编号",
+   "reqd": 1,
+   "in_standard_filter": 1,
+   "in_global_search": 1
+  },
+  {
+   "fieldname": "rider_name",
+   "fieldtype": "Data",
+   "label": "骑手姓名",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_global_search": 1
+  },
+  {
+   "fieldname": "phone",
+   "fieldtype": "Data",
+   "label": "手机号",
+   "description": "演示数据已脱敏"
+  },
+  {
+   "fieldname": "section_profile",
+   "fieldtype": "Section Break",
+   "label": "骑手画像"
+  },
+  {
+   "fieldname": "user_type",
+   "fieldtype": "Select",
+   "label": "用户类型",
+   "options": "个人骑手\n配送团队\n民用用户",
+   "default": "个人骑手",
+   "reqd": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "team_name",
+   "fieldtype": "Data",
+   "label": "所属配送团队",
+   "depends_on": "eval:doc.user_type=='配送团队'",
+   "mandatory_depends_on": "eval:doc.user_type=='配送团队'"
+  },
+  {
+   "fieldname": "column_break_profile",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "platform",
+   "fieldtype": "Select",
+   "label": "配送平台",
+   "options": "美团\n饿了么\n顺丰同城\n达达\n其他配送\n无（民用）",
+   "reqd": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "account_manager",
+   "fieldtype": "Link",
+   "label": "负责人",
+   "options": "User"
+  },
+  {
+   "fieldname": "section_package",
+   "fieldtype": "Section Break",
+   "label": "套餐与押金"
+  },
+  {
+   "fieldname": "package",
+   "fieldtype": "Select",
+   "label": "套餐",
+   "options": "单电月卡\n双电月卡\n车电一体月卡",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "previous_package",
+   "fieldtype": "Select",
+   "label": "原套餐",
+   "options": "\n单电月卡\n双电月卡\n车电一体月卡",
+   "depends_on": "eval:doc.event_type=='升级套餐'",
+   "read_only": 1
+  },
+  {
+   "fieldname": "monthly_fee",
+   "fieldtype": "Currency",
+   "label": "月费",
+   "options": "CNY",
+   "read_only": 1,
+   "description": "按套餐自动带出"
+  },
+  {
+   "fieldname": "column_break_deposit",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "deposit_mode",
+   "fieldtype": "Select",
+   "label": "押金方式",
+   "options": "押金\n信用免押",
+   "default": "信用免押",
+   "reqd": 1
+  },
+  {
+   "fieldname": "deposit_amount",
+   "fieldtype": "Currency",
+   "label": "押金金额",
+   "options": "CNY",
+   "read_only": 1
+  },
+  {
+   "fieldname": "deposit_status",
+   "fieldtype": "Select",
+   "label": "押金状态",
+   "options": "\n已缴纳\n已免押\n待退还\n已退还",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_station",
+   "fieldtype": "Section Break",
+   "label": "站点与渠道"
+  },
+  {
+   "fieldname": "station",
+   "fieldtype": "Link",
+   "label": "常用换电站点",
+   "options": "Swap Station",
+   "reqd": 1
+  },
+  {
+   "fieldname": "district",
+   "fieldtype": "Link",
+   "label": "所在区",
+   "options": "Swap District",
+   "fetch_from": "station.district",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "column_break_channel",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "channel",
+   "fieldtype": "Select",
+   "label": "获客渠道",
+   "options": "站点地推\n平台合作\n老带新\n线上自助\n政企合作",
+   "reqd": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "section_churn",
+   "fieldtype": "Section Break",
+   "label": "退租信息",
+   "depends_on": "eval:doc.event_type=='退租'"
+  },
+  {
+   "fieldname": "churn_reason",
+   "fieldtype": "Select",
+   "label": "退租原因",
+   "options": "\n附近柜点少\n常缺满电电池\n价格偏高\n转用其他品牌\n不再跑单（返乡/转行）\n车辆不兼容\n其他",
+   "mandatory_depends_on": "eval:doc.event_type=='退租'",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "column_break_churn",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "churn_note",
+   "fieldtype": "Small Text",
+   "label": "退租说明"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "options": "Rider Service Record",
+   "no_copy": 1,
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-29 22:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Swap Growth",
+ "name": "Rider Service Record",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1,
+   "submit": 1,
+   "cancel": 1,
+   "amend": 1
+  },
+  {
+   "role": "运营总监",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1,
+   "submit": 1,
+   "cancel": 1,
+   "amend": 1
+  },
+  {
+   "role": "换电运营专员",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1,
+   "submit": 1,
+   "amend": 1
+  },
+  {
+   "role": "区域经理",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1
+  }
+ ],
+ "sort_field": "event_date",
+ "sort_order": "DESC",
+ "states": [],
+ "autoname": "naming_series:",
+ "naming_rule": "By \"Naming Series\" field",
+ "is_submittable": 1,
+ "title_field": "rider_name",
+ "show_title_field_in_link": 1,
+ "search_fields": "rider_id,event_type,district",
+ "track_changes": 1,
+ "description": "记录骑手每一次服务状态变化：新开通、续费、升级、暂停、退租"
+}

@@ -1,0 +1,155 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-10-29 20:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "station_code",
+  "station_name",
+  "district",
+  "address",
+  "column_break_cab",
+  "status",
+  "slots",
+  "launch_date",
+  "section_geo",
+  "longitude",
+  "column_break_geo",
+  "latitude"
+ ],
+ "fields": [
+  {
+   "fieldname": "station_code",
+   "fieldtype": "Data",
+   "label": "站点编码",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "station_name",
+   "fieldtype": "Data",
+   "label": "站点名称",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_global_search": 1
+  },
+  {
+   "fieldname": "district",
+   "fieldtype": "Link",
+   "label": "所在区",
+   "options": "Swap District",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "address",
+   "fieldtype": "Data",
+   "label": "地址"
+  },
+  {
+   "fieldname": "column_break_cab",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "状态",
+   "options": "运营中\n维护中\n已撤柜",
+   "default": "运营中",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "slots",
+   "fieldtype": "Int",
+   "label": "柜机格口数",
+   "default": "12",
+   "description": "所有换电柜的电池仓位合计"
+  },
+  {
+   "fieldname": "launch_date",
+   "fieldtype": "Date",
+   "label": "投放日期"
+  },
+  {
+   "fieldname": "section_geo",
+   "fieldtype": "Section Break",
+   "label": "位置"
+  },
+  {
+   "fieldname": "longitude",
+   "fieldtype": "Float",
+   "label": "经度",
+   "precision": "6"
+  },
+  {
+   "fieldname": "column_break_geo",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "latitude",
+   "fieldtype": "Float",
+   "label": "纬度",
+   "precision": "6"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-29 22:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Swap Growth",
+ "name": "Swap Station",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "运营总监",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "区域经理",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "换电运营专员",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  }
+ ],
+ "sort_field": "station_code",
+ "sort_order": "ASC",
+ "states": [],
+ "autoname": "field:station_code",
+ "naming_rule": "By fieldname",
+ "title_field": "station_name",
+ "show_title_field_in_link": 1,
+ "search_fields": "station_name,district",
+ "description": "换电柜点位主数据"
+}
