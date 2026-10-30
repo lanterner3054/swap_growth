@@ -157,7 +157,7 @@ bench --site <your-site> execute swap_growth.setup_tools.configure_llm \
 sudo SITE=demo.example.com LLM_API_KEY=sk-... bash deploy/deploy.sh
 ```
 
-国内服务器访问 GitHub 不稳定时，脚本会自动重试，并把 Frappe 依赖的两个 GitHub Python 包（gunicorn、PyPika）预取到本地后再安装；中途失败可直接重新执行，已完成的步骤会跳过。仍然超时可加 `GITHUB_PROXY=https://ghfast.top` 走加速前缀。
+国内服务器访问 GitHub 不稳定时，脚本会自动重试，并把 Frappe 依赖的两个 GitHub Python 包（gunicorn、PyPika）预取到本地后再安装；中途失败可直接重新执行，已完成的步骤会跳过。仍然超时可加 `GITHUB_PROXY=https://ghfast.top` 走加速前缀。服务器上已有其他网站占用 80 端口时，演示站会自动改用 8080 等空闲端口，只重启本项目进程，不影响原有服务。
 
 运行测试：
 

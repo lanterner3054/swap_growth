@@ -14,6 +14,7 @@
 #   MIRROR            cn（默认，使用国内镜像）| global
 #   APP_REPO          应用仓库地址（默认 GitHub）
 #   FRAPPE_REPO       Frappe 仓库地址（默认 GitHub，可改为国内镜像）
+#   HTTP_PORT         演示站对外端口（默认 80；80 已被其他服务占用时自动改用 8080 起的空闲端口）
 #   GITHUB_PROXY      GitHub 加速前缀（可选，如 https://ghfast.top），GitHub 访问超时时使用
 #   LLM_PROVIDER      DeepSeek | 智谱GLM（可选）
 #   LLM_API_KEY       大模型 API Key（可选，填写后自动启用数据分析大模型）
@@ -23,7 +24,9 @@ set -euo pipefail
 SITE=${SITE:-swap-demo}
 # 密码保存在 /root/.swap_growth.env，重复执行脚本时复用
 STATE_FILE=/root/.swap_growth.env
+_HTTP_PORT_ENV=${HTTP_PORT:-}
 [ -f "$STATE_FILE" ] && . "$STATE_FILE"
+HTTP_PORT=${_HTTP_PORT_ENV:-${HTTP_PORT:-}}
 ADMIN_PASSWORD=${ADMIN_PASSWORD:-$(openssl rand -hex 6)}
 DB_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-$(openssl rand -hex 10)}
 MIRROR=${MIRROR:-cn}
@@ -120,7 +123,8 @@ else
 	systemctl start mariadb
 fi
 mysql -uroot -p"${DB_ROOT_PASSWORD}" -e "select 1" >/dev/null || die "MariaDB root 密码设置失败"
-systemctl enable --now redis-server
+# Frappe 使用自带的 redis（11000/13000 端口），这里仅确保系统 redis 可用，失败不影响
+systemctl enable --now redis-server >/dev/null 2>&1 || true
 
 # ---------------------------------------------------------------- 5. bench
 log "安装 frappe-bench"
@@ -266,19 +270,51 @@ fi
 
 # ---------------------------------------------------------------- 7. 生产模式
 log "配置 nginx + supervisor"
-if [ "$MEM_MB" -lt 3800 ]; then as_frappe "cd $BENCH_DIR && bench set-config -g gunicorn_workers 2"; fi
+# 与本机已有服务共存：端口被占用时自动避让，并记住选择，重复执行保持一致
+port_busy() { ss -ltnH "sport = :$1" 2>/dev/null | grep -q .; }
+free_port() { local p=$1; while port_busy "$p"; do p=$((p+1)); done; echo "$p"; }
+if [ -z "${HTTP_PORT:-}" ]; then
+	if port_busy 80; then
+		HTTP_PORT=$(free_port 8080)
+		log "80 端口已被本机其他服务占用，演示站改用 ${HTTP_PORT} 端口（不影响原有服务）"
+	else
+		HTTP_PORT=80
+	fi
+fi
+WEB_PORT=${WEB_PORT:-$(free_port 8000)}
+SOCKETIO_PORT=${SOCKETIO_PORT:-$(free_port 9000)}
+printf 'HTTP_PORT=%s\nWEB_PORT=%s\nSOCKETIO_PORT=%s\n' "$HTTP_PORT" "$WEB_PORT" "$SOCKETIO_PORT" >> "$STATE_FILE"
+
+# 按当前可用内存决定进程数（机器上可能还跑着其他服务）
+AVAIL_MB=$(awk '/MemAvailable/ {print int($2/1024)}' /proc/meminfo)
+if [ "$AVAIL_MB" -lt 3000 ]; then WORKERS=2; else WORKERS=3; fi
+as_frappe "cd $BENCH_DIR && bench config set-common-config -c webserver_port ${WEB_PORT} -c socketio_port ${SOCKETIO_PORT} -c gunicorn_workers ${WORKERS}"
+if [ "$HTTP_PORT" != "80" ]; then as_frappe "cd $BENCH_DIR && bench set-nginx-port ${SITE} ${HTTP_PORT}"; fi
+
+# nginx 默认站点也监听 80：本站用 80，或 80 被非系统 nginx 的服务占用（会让系统 nginx 起不来）时移除；
+# 若 80 正由系统 nginx 服务其他网站，则保持不动
+if [ "$HTTP_PORT" = "80" ]; then
+	rm -f /etc/nginx/sites-enabled/default
+elif port_busy 80 && ! { systemctl is-active --quiet nginx && ss -ltnpH "sport = :80" | grep -q '"nginx"'; }; then
+	rm -f /etc/nginx/sites-enabled/default
+fi
+systemctl is-active --quiet nginx || systemctl start nginx || true
+
 cd "$BENCH_DIR"
 bench setup production "$FRAPPE_USER" --yes
-rm -f /etc/nginx/sites-enabled/default
-nginx -t && systemctl reload nginx
-supervisorctl reread && supervisorctl update && supervisorctl restart all || true
+nginx -t
+systemctl reload nginx 2>/dev/null || systemctl restart nginx
+supervisorctl reread && supervisorctl update
+# 只重启本项目的进程，不影响本机其他 supervisor 服务
+supervisorctl restart 'frappe-bench-web:' 'frappe-bench-workers:' 2>/dev/null || true
 
 IP=$(curl -fsSL -m 5 https://ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')
+if [ "$HTTP_PORT" = "80" ]; then URL="http://${IP}/"; else URL="http://${IP}:${HTTP_PORT}/"; fi
 cat <<EOF
 
 =====================================================================
  部署完成
- 访问地址：http://${IP}/  （若 SITE 为域名，请将域名解析到本机后访问 http://${SITE}/）
+ 访问地址：${URL}
  管理员：Administrator / ${ADMIN_PASSWORD}
  演示账号（密码均为 Swap@2026）：
    director@example.com       运营总监（全市）
@@ -286,6 +322,6 @@ cat <<EOF
    qiantang.mgr@example.com   区域经理（钱塘区、临平区）
    operator@example.com       运营专员（录单）
  MariaDB root 密码：${DB_ROOT_PASSWORD}
- 请在云服务器安全组中放行 80 端口。
+ 请在云服务器安全组（防火墙）中放行 ${HTTP_PORT} 端口。
 =====================================================================
 EOF
