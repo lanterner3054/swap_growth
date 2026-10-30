@@ -1,0 +1,213 @@
+/* 数据分析页（跟随 Frappe 桌面主题，支持深色模式） */
+.sga {
+	--sga-red: var(--red-500);
+	--sga-orange: var(--orange-500);
+	--sga-green: var(--green-500);
+	--sga-blue: var(--blue-500);
+	max-width: 1280px;
+	margin: 0 auto;
+	padding-bottom: 40px;
+}
+.sga-status {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px;
+	font-size: var(--text-sm);
+	color: var(--text-muted);
+	margin: 4px 0 14px;
+}
+.sga-status .sga-tag {
+	padding: 2px 10px;
+	border-radius: 10px;
+	background: var(--subtle-fg);
+	color: var(--text-color);
+}
+.sga-status .sga-tag.cached {
+	background: var(--bg-blue);
+	color: var(--text-on-blue);
+}
+.sga-status .sga-tag.fresh {
+	background: var(--bg-green);
+	color: var(--text-on-green);
+}
+.sga-card {
+	background: var(--card-bg);
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius-lg);
+	padding: 18px 20px;
+	margin-bottom: 16px;
+}
+.sga-card h4 {
+	font-size: var(--text-lg);
+	font-weight: 600;
+	margin: 0 0 12px;
+	color: var(--heading-color);
+}
+.sga-hero {
+	background: linear-gradient(135deg, var(--bg-blue), var(--card-bg) 70%);
+}
+.sga-headline {
+	font-size: 22px;
+	font-weight: 700;
+	color: var(--heading-color);
+	line-height: 1.45;
+	margin-bottom: 8px;
+}
+.sga-summary {
+	font-size: var(--text-md);
+	color: var(--text-color);
+	line-height: 1.8;
+}
+.sga-kpis {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+	gap: 12px;
+	margin-top: 16px;
+}
+.sga-kpi {
+	background: var(--card-bg);
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius);
+	padding: 10px 12px;
+}
+.sga-kpi .v {
+	font-size: 20px;
+	font-weight: 700;
+	color: var(--heading-color);
+	font-variant-numeric: tabular-nums;
+}
+.sga-kpi .l {
+	font-size: var(--text-xs);
+	color: var(--text-muted);
+}
+.sga-charts {
+	display: grid;
+	grid-template-columns: 2fr 1fr;
+	gap: 16px;
+}
+.sga-chart {
+	height: 320px;
+}
+.sga-grid {
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	gap: 12px;
+}
+.sga-finding {
+	border: 1px solid var(--border-color);
+	border-left: 4px solid var(--sga-blue);
+	border-radius: var(--border-radius);
+	padding: 12px 14px;
+}
+.sga-finding.风险 {
+	border-left-color: var(--sga-red);
+}
+.sga-finding.关注 {
+	border-left-color: var(--sga-orange);
+}
+.sga-finding.积极 {
+	border-left-color: var(--sga-green);
+}
+.sga-finding .t {
+	font-weight: 600;
+	color: var(--heading-color);
+	margin-bottom: 4px;
+}
+.sga-finding .d {
+	color: var(--text-color);
+	line-height: 1.7;
+}
+.sga-pill {
+	display: inline-block;
+	font-size: var(--text-xs);
+	padding: 1px 8px;
+	border-radius: 9px;
+	margin-right: 6px;
+	font-weight: 500;
+}
+.sga-pill.风险,
+.sga-pill.高 {
+	background: var(--bg-red);
+	color: var(--text-on-red);
+}
+.sga-pill.关注,
+.sga-pill.中 {
+	background: var(--bg-orange);
+	color: var(--text-on-orange);
+}
+.sga-pill.积极,
+.sga-pill.低 {
+	background: var(--bg-green);
+	color: var(--text-on-green);
+}
+.sga-two {
+	display: grid;
+	grid-template-columns: 1fr 1.4fr;
+	gap: 16px;
+}
+.sga-causes li {
+	line-height: 1.8;
+	margin-bottom: 6px;
+}
+.sga-table {
+	width: 100%;
+	border-collapse: collapse;
+}
+.sga-table th,
+.sga-table td {
+	padding: 8px 6px;
+	border-bottom: 1px solid var(--border-color);
+	vertical-align: top;
+	line-height: 1.6;
+}
+.sga-table th {
+	color: var(--text-muted);
+	font-weight: 500;
+	font-size: var(--text-sm);
+}
+.sga-sites {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+	gap: 12px;
+}
+.sga-site {
+	border: 1px dashed var(--orange-400);
+	border-radius: var(--border-radius);
+	padding: 12px 14px;
+}
+.sga-site .n {
+	font-weight: 600;
+	color: var(--heading-color);
+}
+.sga-note {
+	font-size: var(--text-xs);
+	color: var(--text-muted);
+	text-align: center;
+}
+.sga-loading {
+	text-align: center;
+	padding: 80px 0;
+	color: var(--text-muted);
+}
+.sga-loading .spinner {
+	width: 36px;
+	height: 36px;
+	margin: 0 auto 16px;
+	border: 3px solid var(--border-color);
+	border-top-color: var(--primary);
+	border-radius: 50%;
+	animation: sga-spin 0.9s linear infinite;
+}
+@keyframes sga-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+@media (max-width: 900px) {
+	.sga-charts,
+	.sga-grid,
+	.sga-two {
+		grid-template-columns: 1fr;
+	}
+}
