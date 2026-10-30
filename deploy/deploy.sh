@@ -14,6 +14,7 @@
 #   MIRROR            cn（默认，使用国内镜像）| global
 #   APP_REPO          应用仓库地址（默认 GitHub）
 #   FRAPPE_REPO       Frappe 仓库地址（默认 GitHub，可改为国内镜像）
+#   GITHUB_PROXY      GitHub 加速前缀（可选，如 https://ghfast.top），GitHub 访问超时时使用
 #   LLM_PROVIDER      DeepSeek | 智谱GLM（可选）
 #   LLM_API_KEY       大模型 API Key（可选，填写后自动启用数据分析大模型）
 # =============================================================================
@@ -32,6 +33,7 @@ FRAPPE_BRANCH=${FRAPPE_BRANCH:-version-15}
 NODE_VERSION=${NODE_VERSION:-20.18.1}
 LLM_PROVIDER=${LLM_PROVIDER:-DeepSeek}
 LLM_API_KEY=${LLM_API_KEY:-}
+GITHUB_PROXY=${GITHUB_PROXY:-}
 FRAPPE_USER=frappe
 BENCH_DIR=/home/${FRAPPE_USER}/frappe-bench
 
@@ -81,6 +83,12 @@ if [ "$MIRROR" = "cn" ]; then
 index-url = https://mirrors.aliyun.com/pypi/simple/
 trusted-host = mirrors.aliyun.com
 EOF
+	# bench 使用 uv 安装 Python 依赖，uv 不读取 pip.conf
+	cat > /etc/profile.d/swap_growth_mirror.sh <<'EOF'
+export UV_DEFAULT_INDEX=https://mirrors.aliyun.com/pypi/simple/
+export UV_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
+export UV_HTTP_TIMEOUT=120
+EOF
 fi
 
 # ---------------------------------------------------------------- 4. MariaDB
@@ -123,27 +131,119 @@ if [ "$MIRROR" = "cn" ]; then
 	as_frappe "npm config set registry https://registry.npmmirror.com; yarn config set registry https://registry.npmmirror.com"
 fi
 
+# GitHub 网络：慢速连接自动中断重试；可选加速前缀
+as_frappe "git config --global http.lowSpeedLimit 1000 && git config --global http.lowSpeedTime 60"
+if [ -n "$GITHUB_PROXY" ]; then
+	log "GitHub 走加速前缀 ${GITHUB_PROXY}"
+	as_frappe "git config --global url.${GITHUB_PROXY%/}/https://github.com/.insteadOf https://github.com/"
+fi
+retry() { local n=0; until "$@"; do n=$((n+1)); [ $n -ge 4 ] && return 1; echo "  第 $n 次失败，15 秒后重试…"; sleep 15; done; }
+
 if [ ! -d "$BENCH_DIR/apps/frappe" ]; then
 	log "初始化 Frappe ${FRAPPE_BRANCH}（首次约 10~20 分钟）"
+	rm -rf "$BENCH_DIR"
 	as_frappe "cd ~ && yes N | bench init --frappe-path ${FRAPPE_REPO} --frappe-branch ${FRAPPE_BRANCH} frappe-bench" || true
 fi
+[ -d "$BENCH_DIR/apps/frappe" ] || die "Frappe 源码获取失败（GitHub 连接超时）。可重试，或设置 GITHUB_PROXY=https://ghfast.top 后重试"
 
-# 兜底：部分网络无法下载 GitHub tarball（frappe 依赖 air-datepicker），改用 git 克隆
+# 兜底 1：Frappe 依赖两个 GitHub 上的 Python 包（gunicorn、PyPika），uv 只尝试一次，
+# 国内网络常超时。改为先用 git 按提交号预取（自动重试），再从本地目录安装。
+if ! as_frappe "cd $BENCH_DIR && env/bin/python -c 'import frappe'" >/dev/null 2>&1; then
+	log "安装 Frappe Python 依赖（GitHub 依赖改为本地预取）"
+	cat > /home/${FRAPPE_USER}/.vendor_git_deps.py <<'PYEOF'
+"""把 Frappe pyproject.toml 中的 GitHub git 依赖改为本地预取目录。
+
+国内服务器访问 GitHub 时常超时，而 uv/pip 安装 git 依赖时只尝试一次。
+这里先用 git 按提交号拉取（失败自动重试），再把依赖指向本地目录。
+用法：在 bench 目录下执行  python3 vendor_git_deps.py apps/frappe/pyproject.toml
+"""
+
+import pathlib
+import re
+import shutil
+import subprocess
+import sys
+import time
+
+PATTERN = re.compile(r'"([A-Za-z0-9_.-]+) @ git\+(https://github\.com/[^@"]+?)(?:\.git)?@([0-9a-f]{7,40})"')
+VENDOR = pathlib.Path.home() / "vendor"
+
+
+def head(d):
+	r = subprocess.run(["git", "-C", str(d), "rev-parse", "HEAD"], capture_output=True, text=True)
+	return r.stdout.strip()
+
+
+def fetch(name, url, sha, attempts=6):
+	d = VENDOR / name.lower()
+	if (d / ".git").exists() and head(d).startswith(sha):
+		return d
+	for i in range(attempts):
+		shutil.rmtree(d, ignore_errors=True)
+		d.mkdir(parents=True)
+		steps = [
+			["git", "init", "-q"],
+			["git", "fetch", "-q", "--depth", "1", url, sha],
+			["git", "checkout", "-q", "FETCH_HEAD"],
+		]
+		if all(subprocess.run(s, cwd=d).returncode == 0 for s in steps):
+			return d
+		print(f"  拉取 {url} 失败（第 {i + 1}/{attempts} 次），15 秒后重试…", flush=True)
+		time.sleep(15)
+	sys.exit(f"无法从 GitHub 拉取 {url}。可设置 GITHUB_PROXY 环境变量后重新执行部署脚本。")
+
+
+def main(path):
+	p = pathlib.Path(path)
+	text = p.read_text()
+
+	def repl(m):
+		name, url, sha = m.groups()
+		print(f"  预取 {name} @ {sha[:8]}", flush=True)
+		return f'"{name} @ file://{fetch(name, url, sha)}"'
+
+	new = PATTERN.sub(repl, text)
+	if new != text:
+		p.write_text(new)
+		print("  已改为本地依赖", flush=True)
+
+
+if __name__ == "__main__":
+	main(sys.argv[1])
+PYEOF
+	chown ${FRAPPE_USER}: /home/${FRAPPE_USER}/.vendor_git_deps.py
+	as_frappe "cd $BENCH_DIR && [ -x env/bin/python ] || uv venv env --seed --python python3"
+	as_frappe "cd $BENCH_DIR && python3 ~/.vendor_git_deps.py apps/frappe/pyproject.toml && cd apps/frappe && git update-index --assume-unchanged pyproject.toml"
+	retry as_frappe "cd $BENCH_DIR && uv pip install --quiet -e apps/frappe --python env/bin/python" \
+		|| die "Frappe Python 依赖安装失败，请检查网络后重新执行脚本（已完成的步骤会自动跳过）"
+fi
+
+# 兜底 2：部分网络无法下载 GitHub tarball（frappe 依赖 air-datepicker），改用 git 克隆
 if [ ! -d "$BENCH_DIR/apps/frappe/node_modules/air-datepicker" ]; then
 	log "使用 git 方式补装前端依赖"
 	as_frappe "cd ~ && [ -d vendor-air-datepicker ] || git clone --depth 1 https://github.com/frappe/air-datepicker vendor-air-datepicker"
 	as_frappe "cd $BENCH_DIR/apps/frappe && sed -i 's#\"air-datepicker\": \"github:frappe/air-datepicker\"#\"air-datepicker\": \"file:/home/${FRAPPE_USER}/vendor-air-datepicker\"#' package.json && git update-index --assume-unchanged package.json yarn.lock && yarn install --check-files"
-	as_frappe "cd $BENCH_DIR && ls sites/apps.txt >/dev/null 2>&1 || echo frappe > sites/apps.txt; bench setup redis; bench setup procfile; bench build --app frappe"
 fi
-[ -d "$BENCH_DIR/apps/frappe" ] || die "Frappe 初始化失败，请检查网络后重试"
+
+# 补齐 bench init 中断时未完成的步骤（均可重复执行，已完成的自动跳过）
+log "检查 bench 基础配置与前端资源"
+as_frappe "cd $BENCH_DIR && (grep -qx frappe sites/apps.txt 2>/dev/null || echo frappe >> sites/apps.txt) \
+	&& ([ -f config/redis_cache.conf ] || bench setup redis) \
+	&& ([ -f Procfile ] || bench setup procfile) \
+	&& ([ -f sites/assets/assets.json ] || bench build --app frappe)"
 
 # ---------------------------------------------------------------- 6. 应用与站点
 log "获取 swap_growth"
 if [ ! -d "$BENCH_DIR/apps/swap_growth" ]; then
-	as_frappe "cd $BENCH_DIR && bench get-app --skip-assets ${APP_REPO}"
+	retry as_frappe "cd $BENCH_DIR && rm -rf apps/swap_growth && bench get-app --skip-assets ${APP_REPO}" \
+		|| die "拉取 swap_growth 失败，可设置 GITHUB_PROXY=https://ghfast.top 后重试"
 else
 	as_frappe "cd $BENCH_DIR/apps/swap_growth && git pull --ff-only || true"
 fi
+if ! as_frappe "cd $BENCH_DIR && env/bin/python -c 'import swap_growth'" >/dev/null 2>&1; then
+	as_frappe "cd $BENCH_DIR && uv pip install --quiet -e apps/swap_growth --python env/bin/python"
+fi
+as_frappe "cd $BENCH_DIR && (grep -qx swap_growth sites/apps.txt || echo swap_growth >> sites/apps.txt)"
 
 log "下载最新杭州区划地图（含临平区、钱塘区）"
 GEO_DIR="$BENCH_DIR/apps/swap_growth/swap_growth/public/geo"
