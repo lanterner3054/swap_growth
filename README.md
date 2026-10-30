@@ -4,7 +4,7 @@
 
 ![运营指挥大屏](docs/screenshots/command-center.png)
 
-> 在线演示：`http://<演示地址>/`（部署后更新）
+> 在线演示：<http://101.34.66.69:8081/>（大屏：`/app/swap-command-center`）
 > 演示账号（密码均为 `Swap@2026`）：`director@example.com` 运营总监 · `qiantang.mgr@example.com` 区域经理（仅钱塘、临平）· `operator@example.com` 运营专员
 
 ---
