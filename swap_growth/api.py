@@ -11,9 +11,11 @@ from swap_growth.metrics import (
 	Replayer,
 	build_periods,
 	churn_reason_breakdown,
+	complete_rows,
 	group_flows,
 	load_events,
 	period_table,
+	quick_ratio,
 	resolve_districts,
 	snapshot,
 )
@@ -91,10 +93,13 @@ def build_dashboard(districts):
 
 	# 近 12 个月趋势
 	periods = build_periods(add_months(month_start, -11), today_d, "月")
+	trend_rows = period_table(events, periods)
 	trend = [
-		{k: r[k] for k in ("period", "new", "churn", "net", "closing", "churn_rate", "mrr")}
-		for r in period_table(events, periods)
+		{k: r[k] for k in ("period", "new", "churn", "net", "closing", "churn_rate", "mrr", "partial")}
+		for r in trend_rows
 	]
+	# 增长质量比取最近 3 个完整月，避免当月未结束带来的波动
+	kpis["quick_ratio"] = quick_ratio(complete_rows(trend_rows)[-3:])
 
 	# 区域排名与地图
 	flows30 = group_flows(events, add_days(today_d, -29), "district")
@@ -148,10 +153,25 @@ def build_dashboard(districts):
 
 	risk_list, _ = score_riders(events, districts)
 	risk_counts = Counter(r["level"] for r in risk_list)
+	assigned = set(
+		frappe.get_all(
+			"ToDo",
+			filters={
+				"reference_type": "Rider Service Record",
+				"status": "Open",
+				"reference_name": ("in", [r["last_record"] for r in risk_list[:10]] or [""]),
+			},
+			pluck="reference_name",
+		)
+	)
+	for r in risk_list[:10]:
+		r["assigned"] = r["last_record"] in assigned
 
 	station_names = {s.name: s.station_name for s in stations}
 	feed = []
-	for e in reversed(events[-25:]):
+	# 实时动态只展示关键事件（开通、升级、暂停、退租），常规续费量大且信息量低
+	key_events = [e for e in reversed(events[-400:]) if e.event_type != EVENT_RENEW][:20]
+	for e in key_events:
 		feed.append(
 			{
 				"name": e.name,

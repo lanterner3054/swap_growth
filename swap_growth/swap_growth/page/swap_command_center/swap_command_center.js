@@ -114,7 +114,7 @@ class SwapCommandCenter {
 				<div class="sgc-col">
 					${panel("sgc-ai", "数据分析", `<div class="sgc-ai-body sgc-loading">正在读取分析结果…</div>`, `<a class="sgc-link sgc-ai-more">完整分析 ›</a>`)}
 					${panel("sgc-risk", "流失预警", `<div class="sgc-risk-list"></div>`, `<a class="sgc-link sgc-risk-more">全部名单 ›</a>`)}
-					${panel("sgc-feed", "实时动态", `<div class="sgc-feed-list"></div>`, "新单据提交即推送")}
+					${panel("sgc-feed", "关键动态", `<div class="sgc-feed-list"></div>`, "开通 · 升级 · 暂停 · 退租 实时推送")}
 				</div>
 			</div>
 			<div class="sgc-toast"></div>
@@ -215,7 +215,7 @@ class SwapCommandCenter {
 	}
 
 	// ------------------------------------------------------------ 数据
-	async refresh(show_loading) {
+	async refresh() {
 		const r = await frappe.call({
 			method: "swap_growth.api.get_dashboard_data",
 			args: { district: this.district || null },
@@ -255,8 +255,10 @@ class SwapCommandCenter {
 		set("mtd_new", `${SGC.fmt(k.mtd_new)}<small>人</small>`, arrow(k.mtd_new_change, true, "较上月同期 ") + ` · 今日 +${k.today_new}`);
 		set("mtd_churn", `${SGC.fmt(k.mtd_churn)}<small>人</small>`, arrow(k.mtd_churn_change, false, "较上月同期 ") + ` · 今日 ${k.today_churn}`);
 		set("churn_rate", `${k.churn_rate}<small>%</small>`, `月卡续费率 <span class="sgc-up">${k.renew_rate}%</span>`);
+		const qr = k.quick_ratio == null ? "" :
+			` · 增长质量比 <span class="${k.quick_ratio >= 1 ? "sgc-up" : "sgc-down"}">${k.quick_ratio}</span>`;
 		set("mrr", `${SGC.money(k.mrr)}<small>${k.mrr >= 10000 ? "万元" : "元"}</small>`,
-			arrow(k.mrr_change, true, "较月初 ") + ` · 押金 ${SGC.money(k.deposit)}万`);
+			arrow(k.mrr_change, true, "较月初 ") + qr);
 		set("riders_per_slot", `${k.riders_per_slot}<small>人/格口</small>`, `${k.stations} 个站点 · ${SGC.fmt(k.slots)} 个格口`);
 	}
 
@@ -485,11 +487,11 @@ class SwapCommandCenter {
 				<div class="sgc-score sgc-num ${r.level === "高" ? "" : "mid"}">${r.score}</div>
 				<div><div class="who">${SGC.esc(r.rider_name?.[0] || "")}** · ${SGC.esc(r.district)} · ${SGC.esc(r.station_name)}</div>
 				<div class="why" title="${SGC.esc(r.reasons.join("；"))}">${SGC.esc(r.reasons[0] || "")}</div></div>
-				<button class="sgc-btn" data-rider="${SGC.esc(r.rider_id)}">指派</button></div>`
+				<button class="sgc-btn" data-rider="${SGC.esc(r.rider_id)}" ${r.assigned ? "disabled" : ""}>${r.assigned ? "已指派" : "指派"}</button></div>`
 			)
 			.join("");
 		const $list = this.$outer.find(".sgc-risk-list").html(html || `<div class="sgc-loading">暂无高风险骑手</div>`);
-		$list.find(".sgc-btn").on("click", (e) => {
+		$list.find(".sgc-btn:not([disabled])").on("click", (e) => {
 			const $btn = $(e.currentTarget);
 			frappe.call("swap_growth.api.assign_follow_up", { rider_id: $btn.data("rider") }).then((r) => {
 				$btn.text("已指派").prop("disabled", true);
@@ -513,7 +515,9 @@ class SwapCommandCenter {
 	}
 
 	on_realtime(data) {
+		// 只展示当前视角内的动态：选了区就只看该区；区域经理只看自己负责的区
 		if (this.district && data.district !== this.district) return;
+		if (this.data && !this.data.scope.includes(data.district)) return;
 		data.rider_name = data.rider_name || "";
 		this.$outer.find(".sgc-feed-list").prepend(this.feed_row(data, true));
 		this.$outer.find(".sgc-feed-row").slice(14).remove();
@@ -530,7 +534,8 @@ class SwapCommandCenter {
 
 	// ------------------------------------------------------------ 数据分析摘要
 	async load_analysis() {
-		const $body = this.$outer.find(".sgc-ai-body").addClass("sgc-loading").html("正在读取分析结果…");
+		const $body = this.$outer.find(".sgc-ai-body").addClass("sgc-loading")
+			.html("正在读取分析结果…<br><small>若需重新生成，大模型约需 15~40 秒</small>");
 		try {
 			const r = await frappe.call({ method: "swap_growth.analysis.get_analysis", args: { district: this.district } });
 			const a = r.message;
