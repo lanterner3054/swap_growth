@@ -130,6 +130,10 @@ systemctl enable --now redis-server >/dev/null 2>&1 || true
 log "安装 frappe-bench"
 id "$FRAPPE_USER" >/dev/null 2>&1 || useradd -m -s /bin/bash "$FRAPPE_USER"
 chmod o+rx /home/${FRAPPE_USER}
+# bench 安装应用后会调用 sudo supervisorctl 重启进程；frappe 用户没有密码，提前授权避免卡在密码提示
+printf '%s ALL=(root) NOPASSWD: /usr/bin/supervisorctl, /usr/sbin/nginx\n' "$FRAPPE_USER" > /etc/sudoers.d/swap_growth_frappe
+chmod 440 /etc/sudoers.d/swap_growth_frappe
+visudo -cf /etc/sudoers.d/swap_growth_frappe >/dev/null || rm -f /etc/sudoers.d/swap_growth_frappe
 python3 -m pip install --break-system-packages frappe-bench 2>/dev/null || python3 -m pip install frappe-bench
 if [ "$MIRROR" = "cn" ]; then
 	as_frappe "npm config set registry https://registry.npmmirror.com; yarn config set registry https://registry.npmmirror.com"
