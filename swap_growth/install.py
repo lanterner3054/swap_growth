@@ -46,6 +46,7 @@ def after_install():
 	localize_site()
 	ensure_districts()
 	ensure_hero_block()
+	ensure_branding()
 	ensure_demo_users()
 	ensure_settings()
 	from swap_growth.demo.generator import generate
@@ -59,10 +60,17 @@ HERO_BLOCK = "Swap Growth Hero"
 
 
 def after_migrate():
-	"""升级时同步首页横幅、演示账号的显示名与头像。"""
+	"""升级时同步首页横幅、品牌标识、演示账号的显示名与头像。"""
 	ensure_hero_block()
+	ensure_branding()
 	if frappe.db.exists("User", DEMO_USERS[0]["email"]):
 		ensure_demo_users()
+
+
+def ensure_branding():
+	"""导航栏使用应用图标（未自定义过时）。"""
+	if not frappe.db.get_single_value("Navbar Settings", "app_logo"):
+		frappe.db.set_single_value("Navbar Settings", "app_logo", "/assets/swap_growth/images/logo.svg")
 
 
 def ensure_hero_block():

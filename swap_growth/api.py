@@ -394,3 +394,28 @@ def card_high_risk(filters=None):
 		value = sum(1 for r in risk_list if r["level"] == "高")
 		frappe.cache.set_value(key, value, expires_in_sec=600)
 	return _card(value, ["query-report", "Rider Churn Risk"])
+
+
+@frappe.whitelist()
+def get_home_stats():
+	"""工作台首页横幅：演示数据规模与核心指标（轻量查询）。"""
+	districts = resolve_districts(None)
+	scope = {"docstatus": 1, "district": ["in", districts]}
+	first, last = frappe.db.get_value(
+		"Rider Service Record", scope, ["min(event_date)", "max(event_date)"]
+	) or (None, None)
+	months = 0
+	if first and last:
+		first, last = getdate(first), getdate(last)
+		months = (last.year - first.year) * 12 + last.month - first.month + 1
+	return {
+		"active": card_active_riders()["value"],
+		"mtd_new": _count_month(EVENT_NEW),
+		"records": frappe.db.count("Rider Service Record", scope),
+		"riders": frappe.db.sql(
+			"select count(distinct rider_id) from `tabRider Service Record` where docstatus = 1 and district in %s",
+			[districts],
+		)[0][0],
+		"stations": frappe.db.count("Swap Station", {"district": ["in", districts]}),
+		"months": months,
+	}

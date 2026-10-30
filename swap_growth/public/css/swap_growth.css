@@ -19,3 +19,155 @@
 	max-height: 60vh;
 	overflow: auto;
 }
+
+/* ================================================================
+   品牌主题：与运营指挥大屏一致的深蓝科技风
+   ================================================================ */
+:root {
+	--sg-navy-1: #071730;
+	--sg-navy-2: #0b2a55;
+	--sg-blue: #0b6bcb;
+	--sg-cyan: #3fd0ff;
+	--sg-violet: #7c3aed;
+}
+
+/* 顶部导航栏 */
+.navbar {
+	background: linear-gradient(90deg, var(--sg-navy-1) 0%, var(--sg-navy-2) 55%, #123f7a 100%) !important;
+	border-bottom: 1px solid rgba(63, 208, 255, 0.25) !important;
+	box-shadow: 0 2px 12px rgba(7, 23, 48, 0.25);
+	--icon-stroke: #cfe3ff;
+	--text-muted: #cfe3ff;
+}
+.navbar .navbar-home::after {
+	content: "换电运营中心";
+	margin-left: 10px;
+	color: #fff;
+	font-weight: 600;
+	font-size: 15px;
+	letter-spacing: 1px;
+	white-space: nowrap;
+	padding-right: 14px;
+	margin-right: 6px;
+	border-right: 1px solid rgba(255, 255, 255, 0.2);
+}
+.navbar .nav-link,
+.navbar .nav-link.text-muted,
+.navbar #navbar-breadcrumbs a,
+.navbar #navbar-breadcrumbs li::before,
+.navbar .dropdown-help .nav-link span {
+	color: #cfe3ff !important;
+}
+.navbar #navbar-breadcrumbs a:hover,
+.navbar .nav-link:hover {
+	color: #fff !important;
+}
+.navbar .search-bar .form-control,
+.navbar .search-bar input {
+	background: rgba(255, 255, 255, 0.1) !important;
+	border: 1px solid rgba(63, 208, 255, 0.25) !important;
+	color: #fff !important;
+}
+.navbar .search-bar input::placeholder {
+	color: #9fb7da !important;
+}
+.navbar .search-bar .search-icon {
+	--icon-stroke: #9fb7da;
+}
+.navbar .vertical-bar,
+.navbar .navbar-nav .vert-line {
+	border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* 页面背景（仅浅色主题） */
+[data-theme="light"] body {
+	background:
+		radial-gradient(circle at 100% 0%, rgba(63, 208, 255, 0.10), transparent 40%),
+		radial-gradient(circle at 0% 100%, rgba(124, 58, 237, 0.06), transparent 45%),
+		linear-gradient(180deg, #e9f0fa 0%, #f2f6fb 420px, #f4f7fb 100%) fixed;
+}
+[data-theme="light"] .page-container {
+	background: transparent;
+}
+
+/* 页面抬头：浅蓝渐变带 + 左侧强调条 */
+[data-theme="light"] .page-head {
+	background: linear-gradient(90deg, rgba(219, 233, 251, 0.96) 0%, rgba(237, 243, 252, 0.96) 60%, rgba(244, 247, 251, 0.96) 100%);
+	border-bottom: 1px solid #d6e3f5;
+	backdrop-filter: blur(6px);
+}
+.page-head .page-title .title-text {
+	color: #0b2a55;
+	font-weight: 700;
+}
+.page-head .page-title .title-text::before {
+	content: "";
+	display: inline-block;
+	width: 4px;
+	height: 18px;
+	margin-right: 10px;
+	vertical-align: -2px;
+	border-radius: 2px;
+	background: linear-gradient(180deg, var(--sg-cyan), var(--sg-blue));
+}
+
+/* 左侧边栏：卡片化 + 选中项品牌色 */
+[data-theme="light"] .layout-side-section > .list-sidebar,
+[data-theme="light"] .layout-side-section > .overlay-sidebar,
+[data-theme="light"] .layout-side-section > .desk-sidebar {
+	background: rgba(255, 255, 255, 0.85);
+	border: 1px solid #dde7f5;
+	border-radius: 12px;
+	padding: 10px 8px;
+	box-shadow: 0 4px 16px rgba(11, 42, 85, 0.06);
+}
+.desk-sidebar .standard-sidebar-label {
+	color: #5b7499;
+	font-weight: 600;
+}
+.desk-sidebar .standard-sidebar-item {
+	border-radius: 8px;
+	transition: background 0.15s ease;
+}
+[data-theme="light"] .desk-sidebar .standard-sidebar-item:hover {
+	background: #eaf2fd;
+}
+.desk-sidebar .standard-sidebar-item.selected {
+	background: linear-gradient(90deg, var(--sg-blue), #2b8ff0) !important;
+	box-shadow: 0 4px 12px rgba(11, 107, 203, 0.3);
+}
+.desk-sidebar .standard-sidebar-item.selected .sidebar-item-label {
+	color: #fff !important;
+	font-weight: 600;
+}
+.desk-sidebar .standard-sidebar-item.selected .sidebar-item-icon {
+	--icon-stroke: #fff;
+}
+
+/* 主内容区卡片 */
+[data-theme="light"] .layout-main-section-wrapper .layout-main-section {
+	border-radius: 12px;
+	border-color: #dde7f5;
+	box-shadow: 0 4px 18px rgba(11, 42, 85, 0.06);
+}
+[data-theme="light"] .workspace-container .widget,
+[data-theme="light"] .workspace-container .number-widget-box {
+	border-color: #dde7f5;
+	border-radius: 12px;
+}
+[data-theme="light"] .workspace-container .widget:hover {
+	border-color: #b9d2f2;
+	box-shadow: 0 6px 18px rgba(11, 42, 85, 0.08);
+}
+
+/* 主按钮使用品牌蓝 */
+[data-theme="light"] .btn-primary,
+[data-theme="light"] .btn-primary:not(:disabled):not(.disabled):active {
+	background: linear-gradient(90deg, var(--sg-blue), #2b8ff0);
+	border-color: transparent;
+	color: #fff;
+}
+[data-theme="light"] .btn-primary:hover {
+	background: linear-gradient(90deg, #0a5fb4, #1f80e0);
+	color: #fff;
+}

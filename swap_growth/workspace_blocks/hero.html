@@ -3,25 +3,41 @@
 		<div>
 			<div class="eyebrow">换电增长分析 · 杭州</div>
 			<h2>运营一屏看全，增长与流失有据可依</h2>
-			<p>录入骑手开通、续费、升级、暂停、退租单据，报表分析增长与流失，大屏实时总览全城运营，大模型给出结论与行动建议。</p>
+			<p>从骑手服务单出发：单据记录每一次开通与流失，报表分析增长质量，大屏实时总览全城运营，大模型给出结论与行动建议。</p>
 		</div>
 		<div class="stats">
 			<div><b data-k="active">—</b><span>活跃骑手</span></div>
+			<div><b data-k="mtd_new" class="green">—</b><span>本月新开通</span></div>
 			<div><b data-k="risk" class="red">—</b><span>高风险骑手</span></div>
 		</div>
 	</div>
 	<div class="tiles">
+		<a class="tile" data-route="List/Rider Service Record">
+			<div class="tile-top"><span class="no">01</span><span class="tag">业务单据</span></div>
+			<h3>骑手服务单</h3>
+			<p>开通 · 续费 · 升级 · 暂停 · 退租，带生命周期校验与押金、回流识别</p>
+			<p class="meta" data-k="records">预置演示数据读取中…</p>
+			<span class="go">查看单据 →</span>
+		</a>
+		<a class="tile" data-route="query-report/Rider Growth Analysis">
+			<div class="tile-top"><span class="no">02</span><span class="tag">增长报表</span></div>
+			<h3>骑手增长分析</h3>
+			<p>按周 / 月 / 季看新开通、退租、净增、流失率、续费率与 MRR 变动</p>
+			<p class="meta">另含同期群留存、流失预警名单</p>
+			<span class="go">打开报表 →</span>
+		</a>
 		<a class="tile screen" data-route="swap-command-center">
-			<div class="tile-top"><span class="ico">▦</span><span class="tag">实时</span></div>
+			<div class="tile-top"><span class="no">03</span><span class="tag live">数据大屏 · 实时</span></div>
 			<h3>运营指挥大屏</h3>
-			<p>杭州地图 · 区域排名 · 流失预警 · 关键动态秒级推送，支持全屏投屏演示</p>
+			<p>杭州区划地图、区域排名、增长趋势、流失预警，新单据秒级推送</p>
+			<p class="meta">1920×1080 自适应，一键全屏投屏</p>
 			<span class="go">进入大屏 →</span>
 		</a>
 		<a class="tile ai" data-route="swap-data-analysis">
-			<div class="tile-top"><span class="ico">✦</span><span class="tag engine">数据分析</span></div>
+			<div class="tile-top"><span class="no">✦</span><span class="tag engine">数据分析</span></div>
 			<h3>数据分析</h3>
 			<p class="headline">正在读取最新分析…</p>
-			<p class="meta"></p>
+			<p class="meta" data-k="brief"></p>
 			<span class="go">查看完整分析 →</span>
 		</a>
 	</div>
