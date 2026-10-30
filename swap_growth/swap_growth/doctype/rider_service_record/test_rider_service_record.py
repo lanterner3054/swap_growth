@@ -55,3 +55,28 @@ class TestRiderServiceRecord(FrappeTestCase):
 
 	def test_future_date(self):
 		self.assertRaises(frappe.ValidationError, self.make, "新开通", event_date=add_days(today(), 1))
+
+	def test_cancel_only_latest(self):
+		self.make("新开通")
+		renew = self.make("续费")
+		opened = frappe.get_all(
+			"Rider Service Record", filters={"rider_id": self.rider_id, "event_type": "新开通"}, pluck="name"
+		)[0]
+		self.assertRaises(frappe.ValidationError, frappe.get_doc("Rider Service Record", opened).cancel)
+		renew.cancel()  # 最近一张可以作废
+		self.assertEqual(renew.docstatus, 2)
+
+	def test_reopen_not_before_churn(self):
+		self.make("新开通", event_date=add_days(today(), -10))
+		self.make("退租", event_date=add_days(today(), -2), churn_reason="价格偏高")
+		self.assertRaises(frappe.ValidationError, self.make, "新开通", event_date=add_days(today(), -5))
+
+
+class TestMetrics(FrappeTestCase):
+	def test_mrr_movements_reconcile(self):
+		"""期初 MRR + 新增 + 扩张 + 恢复 - 收缩 - 流失 = 期末 MRR。"""
+		from swap_growth.metrics import build_periods, default_range, load_events, period_table
+
+		start, end = default_range()
+		for r in period_table(load_events(), build_periods(start, end, "月")):
+			self.assertAlmostEqual(r["mrr_opening"] + r["mrr_net"], r["mrr"], places=2, msg=r["period"])

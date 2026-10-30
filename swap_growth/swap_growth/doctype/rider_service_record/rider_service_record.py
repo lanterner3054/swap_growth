@@ -55,6 +55,8 @@ class RiderServiceRecord(Document):
 				frappe.throw(
 					f"骑手 {self.rider_id} 当前仍在租（最近事件：{last.event_type}），请录入续费、升级或退租"
 				)
+			if last and getdate(self.event_date) < getdate(last.event_date):
+				frappe.throw(f"再次开通日期不能早于该骑手上次退租日期（{last.event_date}）")
 			self.is_returning = 1 if last else 0
 			return
 		if not in_service:
@@ -84,6 +86,9 @@ class RiderServiceRecord(Document):
 			self.deposit_status = "已缴纳"
 
 	def on_submit(self):
+		clear_dashboard_cache()
+		if self.event_type == EVENT_RENEW:
+			return  # 常规续费不推送到大屏动态
 		frappe.publish_realtime(
 			REALTIME_EVENT,
 			{
@@ -98,7 +103,23 @@ class RiderServiceRecord(Document):
 			},
 			after_commit=True,
 		)
-		clear_dashboard_cache()
+
+	def before_cancel(self):
+		"""只允许作废骑手最近的一张单据，否则会打断其生命周期（例如作废开通单但保留后续续费）。"""
+		later = frappe.get_all(
+			"Rider Service Record",
+			filters={
+				"rider_id": self.rider_id,
+				"docstatus": 1,
+				"name": ("!=", self.name),
+				"event_date": (">=", self.event_date),
+				"creation": (">", self.creation),
+			},
+			pluck="name",
+			limit=1,
+		)
+		if later:
+			frappe.throw(f"该骑手之后还有单据 {later[0]}，请先作废最近的单据再作废本单")
 
 	def on_cancel(self):
 		clear_dashboard_cache()
