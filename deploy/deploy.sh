@@ -20,6 +20,9 @@
 set -euo pipefail
 
 SITE=${SITE:-swap-demo}
+# 密码保存在 /root/.swap_growth.env，重复执行脚本时复用
+STATE_FILE=/root/.swap_growth.env
+[ -f "$STATE_FILE" ] && . "$STATE_FILE"
 ADMIN_PASSWORD=${ADMIN_PASSWORD:-$(openssl rand -hex 6)}
 DB_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-$(openssl rand -hex 10)}
 MIRROR=${MIRROR:-cn}
@@ -34,9 +37,11 @@ BENCH_DIR=/home/${FRAPPE_USER}/frappe-bench
 
 log() { echo -e "\n\033[1;36m==> $*\033[0m"; }
 die() { echo -e "\033[1;31m错误：$*\033[0m" >&2; exit 1; }
-as_frappe() { sudo -u "$FRAPPE_USER" -H bash -lc "$*"; }
+as_frappe() { sudo -u "$FRAPPE_USER" -H bash -lc "cd ~ && $*"; }
 
 [ "$(id -u)" -eq 0 ] || die "请使用 root 执行"
+cd /tmp
+umask 077; printf 'ADMIN_PASSWORD=%s\nDB_ROOT_PASSWORD=%s\n' "$ADMIN_PASSWORD" "$DB_ROOT_PASSWORD" > "$STATE_FILE"; umask 022
 . /etc/os-release
 [[ "$ID" == "ubuntu" ]] || echo "提示：脚本针对 Ubuntu 编写，当前为 $PRETTY_NAME，继续尝试…"
 
@@ -89,11 +94,24 @@ collation-server = utf8mb4_unicode_ci
 default-character-set = utf8mb4
 EOF
 systemctl restart mariadb
-if mysql -uroot -e "select 1" >/dev/null 2>&1; then
-	mysql -uroot -e "ALTER USER 'root'@'localhost' IDENTIFIED VIA mysql_native_password USING PASSWORD('${DB_ROOT_PASSWORD}'); FLUSH PRIVILEGES;"
+SET_ROOT_SQL="ALTER USER 'root'@'localhost' IDENTIFIED VIA mysql_native_password USING PASSWORD('${DB_ROOT_PASSWORD}') OR unix_socket; FLUSH PRIVILEGES;"
+if mysql -uroot -p"${DB_ROOT_PASSWORD}" -e "select 1" >/dev/null 2>&1; then
+	:
+elif mysql -uroot -e "select 1" >/dev/null 2>&1; then
+	mysql -uroot -e "$SET_ROOT_SQL"
 else
-	echo "MariaDB root 已设置密码，请确认 DB_ROOT_PASSWORD 正确"
+	# root 密码未知（例如上次执行中断）：以跳过权限模式启动并重置
+	log "重置 MariaDB root 密码"
+	systemctl stop mariadb
+	mkdir -p /run/mysqld && chown mysql: /run/mysqld
+	mysqld_safe --skip-grant-tables --skip-networking >/dev/null 2>&1 &
+	for i in $(seq 1 30); do mysql -uroot -e "select 1" >/dev/null 2>&1 && break; sleep 1; done
+	mysql -uroot -e "FLUSH PRIVILEGES; $SET_ROOT_SQL"
+	mysqladmin -uroot -p"${DB_ROOT_PASSWORD}" shutdown || pkill -f mysqld
+	sleep 3
+	systemctl start mariadb
 fi
+mysql -uroot -p"${DB_ROOT_PASSWORD}" -e "select 1" >/dev/null || die "MariaDB root 密码设置失败"
 systemctl enable --now redis-server
 
 # ---------------------------------------------------------------- 5. bench
