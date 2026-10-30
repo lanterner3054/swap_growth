@@ -308,9 +308,26 @@ cd "$BENCH_DIR"
 bench setup production "$FRAPPE_USER" --yes
 nginx -t
 systemctl reload nginx 2>/dev/null || systemctl restart nginx
-supervisorctl reread && supervisorctl update
+# 确保 supervisor 在运行且已加载本项目配置
+systemctl enable --now supervisor
+[ -e /etc/supervisor/conf.d/frappe-bench.conf ] || ln -sf "$BENCH_DIR/config/supervisor.conf" /etc/supervisor/conf.d/frappe-bench.conf
+supervisorctl reread
+supervisorctl update
 # 只重启本项目的进程，不影响本机其他 supervisor 服务
 supervisorctl restart 'frappe-bench-web:' 'frappe-bench-workers:' 2>/dev/null || true
+
+# 系统防火墙（ufw）开启时放行演示端口
+if command -v ufw >/dev/null && ufw status | grep -q "Status: active"; then
+	ufw allow "${HTTP_PORT}/tcp" >/dev/null
+fi
+
+# 自检：本机访问应返回 200
+for i in $(seq 1 30); do
+	CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:${HTTP_PORT}/api/method/ping" || true)
+	[ "$CODE" = "200" ] && break
+	sleep 2
+done
+[ "$CODE" = "200" ] || die "站点自检失败（HTTP ${CODE}），请执行 sudo supervisorctl status 查看进程状态"
 
 IP=$(curl -fsSL -m 5 https://ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')
 if [ "$HTTP_PORT" = "80" ]; then URL="http://${IP}/"; else URL="http://${IP}:${HTTP_PORT}/"; fi
