@@ -19,3 +19,6 @@ before_install = "swap_growth.install.before_install"
 after_install = "swap_growth.install.after_install"
 
 app_include_css = ["/assets/swap_growth/css/swap_growth.css"]
+
+# 演示数据每日续写（可在《换电增长设置》中关闭）
+scheduler_events = {"daily": ["swap_growth.demo.live.daily_tick"]}

@@ -169,4 +169,5 @@ def ensure_settings():
 		settings.timeout = 90
 	if not settings.provider:
 		settings.provider = "DeepSeek"
+	settings.demo_auto_refresh = 1
 	settings.save(ignore_permissions=True)
