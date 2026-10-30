@@ -5,9 +5,14 @@
    "label": "近 12 个月新开通、退租与净增"
   }
  ],
- "content": "[{\"id\": \"h1\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>换电增长分析</b></span>\", \"col\": 12}}, {\"id\": \"p1\", \"type\": \"paragraph\", \"data\": {\"text\": \"录入骑手开通、续费、升级、暂停、退租单据 → 报表分析增长与流失 → 大屏总览全城运营 → 流失预警指派跟进 → 数据分析给出结论与行动建议。\", \"col\": 12}}, {\"id\": \"n0\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"活跃骑手\", \"col\": 3}}, {\"id\": \"n1\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"本月新开通\", \"col\": 3}}, {\"id\": \"n2\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"本月退租\", \"col\": 3}}, {\"id\": \"n3\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"高风险骑手\", \"col\": 3}}, {\"id\": \"ch\", \"type\": \"chart\", \"data\": {\"chart_name\": \"近 12 个月新开通、退租与净增\", \"col\": 12}}, {\"id\": \"h3\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>常用入口</b></span>\", \"col\": 12}}, {\"id\": \"s0\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"运营指挥大屏\", \"col\": 4}}, {\"id\": \"s1\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"数据分析\", \"col\": 4}}, {\"id\": \"s2\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"增长分析报表\", \"col\": 4}}, {\"id\": \"s3\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"流失预警名单\", \"col\": 4}}, {\"id\": \"s4\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"骑手服务单\", \"col\": 4}}, {\"id\": \"s5\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"同期群留存\", \"col\": 4}}, {\"id\": \"sp\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"h2\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>功能入口</b></span>\", \"col\": 12}}, {\"id\": \"c0\", \"type\": \"card\", \"data\": {\"card_name\": \"业务单据\", \"col\": 4}}, {\"id\": \"c1\", \"type\": \"card\", \"data\": {\"card_name\": \"分析报表\", \"col\": 4}}, {\"id\": \"c2\", \"type\": \"card\", \"data\": {\"card_name\": \"数据分析与设置\", \"col\": 4}}]",
+ "content": "[{\"id\": \"hero\", \"type\": \"custom_block\", \"data\": {\"custom_block_name\": \"Swap Growth Hero\", \"col\": 12}}, {\"id\": \"n0\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"活跃骑手\", \"col\": 3}}, {\"id\": \"n1\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"本月新开通\", \"col\": 3}}, {\"id\": \"n2\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"本月退租\", \"col\": 3}}, {\"id\": \"n3\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"高风险骑手\", \"col\": 3}}, {\"id\": \"ch\", \"type\": \"chart\", \"data\": {\"chart_name\": \"近 12 个月新开通、退租与净增\", \"col\": 12}}, {\"id\": \"h3\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>常用入口</b></span>\", \"col\": 12}}, {\"id\": \"s0\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"运营指挥大屏\", \"col\": 4}}, {\"id\": \"s1\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"数据分析\", \"col\": 4}}, {\"id\": \"s2\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"增长分析报表\", \"col\": 4}}, {\"id\": \"s3\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"流失预警名单\", \"col\": 4}}, {\"id\": \"s4\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"骑手服务单\", \"col\": 4}}, {\"id\": \"s5\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"同期群留存\", \"col\": 4}}, {\"id\": \"sp\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"h2\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>功能入口</b></span>\", \"col\": 12}}, {\"id\": \"c0\", \"type\": \"card\", \"data\": {\"card_name\": \"业务单据\", \"col\": 4}}, {\"id\": \"c1\", \"type\": \"card\", \"data\": {\"card_name\": \"分析报表\", \"col\": 4}}, {\"id\": \"c2\", \"type\": \"card\", \"data\": {\"card_name\": \"数据分析与设置\", \"col\": 4}}]",
  "creation": "2026-10-29 20:00:00.000000",
- "custom_blocks": [],
+ "custom_blocks": [
+  {
+   "custom_block_name": "Swap Growth Hero",
+   "label": "Swap Growth Hero"
+  }
+ ],
  "docstatus": 0,
  "doctype": "Workspace",
  "for_user": "",
@@ -164,7 +169,7 @@
    "dependencies": ""
   }
  ],
- "modified": "2026-10-30 12:30:00.000000",
+ "modified": "2026-10-30 13:00:00.000000",
  "modified_by": "Administrator",
  "module": "Swap Growth",
  "name": "Swap Growth",

@@ -45,6 +45,7 @@ def after_install():
 	ensure_roles()
 	localize_site()
 	ensure_districts()
+	ensure_hero_block()
 	ensure_demo_users()
 	ensure_settings()
 	from swap_growth.demo.generator import generate
@@ -54,10 +55,31 @@ def after_install():
 	print(f"[swap_growth] 演示数据已生成：{summary}")
 
 
+HERO_BLOCK = "Swap Growth Hero"
+
+
 def after_migrate():
-	"""升级时同步演示账号的显示名与头像。"""
+	"""升级时同步首页横幅、演示账号的显示名与头像。"""
+	ensure_hero_block()
 	if frappe.db.exists("User", DEMO_USERS[0]["email"]):
 		ensure_demo_users()
+
+
+def ensure_hero_block():
+	"""工作台顶部横幅（Custom HTML Block），内容来自 workspace_blocks/hero.*。"""
+	base = frappe.get_app_path("swap_growth", "workspace_blocks")
+	values = {}
+	for field, ext in (("html", "html"), ("style", "css"), ("script", "js")):
+		with open(f"{base}/hero.{ext}", encoding="utf-8") as f:
+			values[field] = f.read()
+	if frappe.db.exists("Custom HTML Block", HERO_BLOCK):
+		doc = frappe.get_doc("Custom HTML Block", HERO_BLOCK)
+		doc.update(values)
+		doc.save(ignore_permissions=True)
+	else:
+		frappe.get_doc({"doctype": "Custom HTML Block", "private": 0, **values}).insert(
+			ignore_permissions=True, set_name=HERO_BLOCK
+		)
 
 
 def ensure_roles():
@@ -136,6 +158,7 @@ def ensure_demo_users():
 					"email": email,
 					"first_name": spec["first_name"],
 					"user_image": spec["avatar"],
+					"default_workspace": "Swap Growth",
 					"language": "zh",
 					"send_welcome_email": 0,
 					"new_password": DEMO_PASSWORD,
@@ -154,6 +177,7 @@ def ensure_demo_users():
 					"last_name": "",
 					"full_name": spec["first_name"],
 					"user_image": spec["avatar"],
+					"default_workspace": "Swap Growth",
 				},
 				update_modified=False,
 			)

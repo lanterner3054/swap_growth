@@ -40,16 +40,38 @@ class SwapGrowthSettings(Document):
 
 @frappe.whitelist()
 def test_connection():
+	"""用与正式分析相同的参数（关闭思考、JSON 模式）发一次小请求，并检查能否解析出 JSON。"""
 	frappe.only_for(("System Manager", "运营总监"))
-	from swap_growth.analysis import call_llm
+	import time
+
+	from swap_growth.analysis import call_llm, explain_error, parse_json
 
 	settings = frappe.get_single("Swap Growth Settings")
-	reply = call_llm(
-		settings,
-		[{"role": "user", "content": '请只回复 JSON：{"ok": true, "message": "连接成功"}'}],
-		max_tokens=50,
-	)
-	return {"model": settings.resolved_model(), "reply": reply}
+	started = time.time()
+	try:
+		reply = call_llm(
+			settings,
+			[
+				{"role": "system", "content": "你只输出 JSON 对象。"},
+				{"role": "user", "content": '请原样输出：{"ok": true, "message": "连接成功"}'},
+			],
+			max_tokens=200,
+			timeout=60,
+		)
+		parse_json(reply)
+	except Exception as e:
+		return {
+			"ok": False,
+			"model": settings.resolved_model(),
+			"error": explain_error(e),
+			"detail": str(e)[:300],
+		}
+	return {
+		"ok": True,
+		"model": settings.resolved_model(),
+		"reply": reply,
+		"seconds": round(time.time() - started, 1),
+	}
 
 
 @frappe.whitelist()

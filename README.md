@@ -6,6 +6,8 @@
 
 > 在线演示：<http://101.34.66.69:8081/>（大屏：`/app/swap-command-center`）
 > 演示账号（密码均为 `Swap@2026`）：`director@example.com` 运营总监 · `qiantang.mgr@example.com` 区域经理（仅钱塘、临平）· `operator@example.com` 运营专员
+>
+> 开发方式：需求、业务设定与验收由 Adrian Ding 负责，代码由 Claude（Anthropic）按要求实现。每一轮的需求原话与对应改动见 [迭代记录](docs/迭代记录.md)。
 
 ---
 

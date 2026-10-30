@@ -139,6 +139,8 @@ class SwapCommandCenter {
 			<div class="sgc-toast"></div>
 		</div></div>`).appendTo(this.page.main);
 		this.$screen = this.$outer.find(".sgc-screen");
+		this.$outer.find(".sgc-ai").prepend(`<i class="sgc-scan"></i>`)
+			.find(".sgc-ptitle span").append(`<i class="sgc-engine rule" style="font-style:normal"></i>`);
 		this.$outer.find(".sgc-ai-more").on("click", () => this.go("swap-data-analysis"));
 		this.$outer.find(".sgc-risk-more").on("click", () => this.go("query-report", "Rider Churn Risk"));
 		this.page.main.css({ padding: "12px 0" });
@@ -560,6 +562,8 @@ class SwapCommandCenter {
 				$body.html("正在生成分析…<br><small>大模型约需 15~40 秒，可先查看其他面板</small>")
 			);
 			if (district !== this.district) return; // 期间已切换区域
+			this.$outer.find(".sgc-engine").toggleClass("rule", a.source !== "大模型")
+				.text(a.source === "大模型" ? "大模型" : "规则引擎");
 			const res = a.result || {};
 			const items = (res.findings || [])
 				.slice(0, 3)

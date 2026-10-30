@@ -140,6 +140,31 @@ def get_analysis_scopes():
 	return scopes
 
 
+@frappe.whitelist()
+def get_latest_brief():
+	"""工作台首页卡片：当前用户默认范围的最新一条分析（不触发生成）。"""
+	district = resolve_scope(None)
+	filters = {"district": district} if district else {"district": ("is", "not set")}
+	rows = frappe.get_all(
+		"Data Analysis Record",
+		filters=filters,
+		fields=["headline", "source", "model", "generated_at", "expires_at", "scope_label"],
+		order_by="generated_at desc",
+		limit=1,
+	)
+	if not rows:
+		return None
+	r = rows[0]
+	return {
+		"headline": r.headline,
+		"source": r.source,
+		"model": r.model,
+		"scope": r.scope_label,
+		"generated_at": str(r.generated_at),
+		"expired": r.expires_at < now_datetime(),
+	}
+
+
 def find_cached(district, since=None):
 	filters = {"expires_at": (">", now_datetime())}
 	if since:
@@ -165,9 +190,7 @@ def to_payload(doc, cached_hit):
 		"generated_at": str(doc.generated_at),
 		"expires_at": str(doc.expires_at),
 		"cached": cached_hit,
-		"error": doc.error_message
-		if "System Manager" in frappe.get_roles()
-		else (bool(doc.error_message) or None),
+		"error": doc.error_message or None,
 		"result": json.loads(doc.result_json or "{}"),
 		"metrics": json.loads(doc.metrics_json or "{}"),
 	}
@@ -181,7 +204,7 @@ def run_analysis(district, settings):
 			result = llm_analysis(settings, metrics)
 			source, model = "大模型", f"{settings.provider} · {settings.resolved_model()}"
 		except Exception as e:
-			error = str(e)[:500]
+			error = explain_error(e)
 			frappe.log_error(title="换电数据分析：大模型调用失败", message=frappe.get_traceback())
 	if not result:
 		result = rule_analysis(metrics)
@@ -370,11 +393,11 @@ def build_metrics(district=None):
 # ---------------------------------------------------------------- 大模型
 
 
-def call_llm(settings, messages, max_tokens=1800, json_mode=True):
+def call_llm(settings, messages, max_tokens=4096, json_mode=True, timeout=None):
 	"""调用 OpenAI 兼容接口（DeepSeek / 智谱 GLM）。
 
-	默认关闭思考模式（两家新模型默认开启，会显著增加耗时），并要求 JSON 输出；
-	若服务商不支持这些可选参数返回 400，则去掉可选参数重试一次。
+	默认关闭思考模式（两家新模型默认开启，会显著增加耗时并占用输出额度），并要求 JSON 输出。
+	服务商不支持某个可选参数返回 400 时逐步降级：先去掉 JSON 模式（保留关闭思考），再去掉全部可选参数。
 	"""
 	api_key = settings.get_password("api_key", raise_exception=False)
 	if not api_key:
@@ -385,37 +408,74 @@ def call_llm(settings, messages, max_tokens=1800, json_mode=True):
 		"temperature": 0.3,
 		"max_tokens": max_tokens,
 	}
-	optional = {"thinking": {"type": "disabled"}}
+	thinking_off = {"thinking": {"type": "disabled"}}
+	attempts = [{**payload, **thinking_off}, payload]
 	if json_mode:
-		optional["response_format"] = {"type": "json_object"}
+		attempts.insert(0, {**payload, **thinking_off, "response_format": {"type": "json_object"}})
 	url = f"{settings.resolved_base_url()}/chat/completions"
 	headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-	timeout = int(settings.timeout or 90)
-	resp = requests.post(url, headers=headers, json={**payload, **optional}, timeout=timeout)
-	if resp.status_code == 400:
-		resp = requests.post(url, headers=headers, json=payload, timeout=timeout)
+	timeout = timeout or int(settings.timeout or 90)
+	for body in attempts:
+		resp = requests.post(url, headers=headers, json=body, timeout=timeout)
+		if resp.status_code != 400:
+			break
 	if resp.status_code >= 400:
-		raise Exception(f"模型接口返回 {resp.status_code}：{resp.text[:300]}")
-	return resp.json()["choices"][0]["message"]["content"]
+		raise LLMError(f"模型接口返回 {resp.status_code}：{resp.text[:300]}", status=resp.status_code)
+	choice = resp.json()["choices"][0]
+	content = (choice.get("message") or {}).get("content") or ""
+	if not content.strip():
+		reason = choice.get("finish_reason")
+		raise LLMError(f"模型没有返回正文（finish_reason={reason}），可能仍在思考模式下耗尽了输出额度")
+	return content
+
+
+class LLMError(Exception):
+	def __init__(self, message, status=None):
+		super().__init__(message)
+		self.status = status
+
+
+def explain_error(e):
+	"""把技术错误翻译成运营人员看得懂的原因。"""
+	text = str(e)
+	status = getattr(e, "status", None)
+	if isinstance(e, requests.Timeout):
+		return "大模型响应超时，可在设置中调大「请求超时」或换用更快的模型"
+	if isinstance(e, requests.ConnectionError):
+		return "无法连接大模型接口，请检查服务器网络或接口地址"
+	if status in (401, 403):
+		return "API Key 无效或无权使用该模型"
+	if status == 404:
+		return "模型名称或接口地址不正确"
+	if status == 429:
+		return "调用频率或额度受限（免费模型常见），请稍后重试"
+	if isinstance(e, json.JSONDecodeError) or "缺少必要字段" in text:
+		return "模型返回的内容不是规定的格式"
+	return text[:120]
 
 
 def llm_analysis(settings, metrics):
 	data = {k: v for k, v in metrics.items() if k != "chart"}
-	content = call_llm(
-		settings,
-		[
-			{"role": "system", "content": SYSTEM_PROMPT},
-			{
-				"role": "user",
-				"content": f"分析范围：{metrics['scope']}，数据截至 {metrics['as_of']}。指标如下：\n"
-				+ json.dumps(data, ensure_ascii=False),
-			},
-		],
-	)
-	result = parse_json(content)
-	if not result.get("headline") or not result.get("findings"):
-		raise Exception("模型返回内容缺少必要字段")
-	return normalize(result)
+	messages = [
+		{"role": "system", "content": SYSTEM_PROMPT},
+		{
+			"role": "user",
+			"content": f"分析范围：{metrics['scope']}，数据截至 {metrics['as_of']}。指标如下：\n"
+			+ json.dumps(data, ensure_ascii=False),
+		},
+	]
+	timeout = max(int(settings.timeout or 0), 180)  # 后台执行，不受网页请求超时限制
+	last_error = None
+	for _ in range(2):  # 返回格式不对时再请求一次
+		content = call_llm(settings, messages, timeout=timeout)
+		try:
+			result = parse_json(content)
+			if result.get("headline") and result.get("findings"):
+				return normalize(result)
+			last_error = LLMError("模型返回内容缺少必要字段")
+		except ValueError as e:  # json.JSONDecodeError 是 ValueError 的子类
+			last_error = e
+	raise last_error
 
 
 def parse_json(text):

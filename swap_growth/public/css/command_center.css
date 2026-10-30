@@ -345,9 +345,47 @@
 	color: var(--muted);
 }
 
-/* 数据分析 */
+/* 数据分析：大屏上的重点面板 */
 .sgc-col > .sgc-ai {
 	flex: 0 0 292px;
+	border-color: rgba(167, 139, 250, 0.6);
+	background: linear-gradient(160deg, rgba(76, 29, 149, 0.32), rgba(8, 25, 55, 0.75) 55%);
+	box-shadow: 0 0 22px rgba(124, 58, 237, 0.28), inset 0 0 26px rgba(124, 58, 237, 0.16);
+	overflow: hidden;
+}
+.sgc-ai .sgc-ptitle {
+	border-bottom-color: rgba(167, 139, 250, 0.35);
+}
+.sgc-ai .sgc-ptitle span::before {
+	background: #a78bfa;
+	box-shadow: 0 0 8px #a78bfa;
+}
+.sgc-ai .sgc-scan {
+	position: absolute;
+	left: 0;
+	top: 0;
+	height: 2px;
+	width: 40%;
+	background: linear-gradient(90deg, transparent, #c4b5fd, transparent);
+	animation: sgc-scan 3.2s linear infinite;
+}
+@keyframes sgc-scan {
+	from { transform: translateX(-100%); }
+	to { transform: translateX(260%); }
+}
+.sgc-engine {
+	margin-left: 10px;
+	padding: 1px 8px;
+	border-radius: 10px;
+	font-size: 12px;
+	font-weight: 500;
+	vertical-align: 2px;
+	background: rgba(167, 139, 250, 0.2);
+	color: #ddd6fe;
+}
+.sgc-engine.rule {
+	background: rgba(127, 155, 196, 0.18);
+	color: var(--muted);
 }
 .sgc-ai-head {
 	font-size: 17px;
